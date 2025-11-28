@@ -7,7 +7,7 @@ const Welcome = ({ onShowLogin }) => {
         <div className="md:flex">
           <div className="md:flex-1 p-8 md:p-12">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">
-              Bienvenido al Sistema de Administración
+              Bienvenido al Sistema de Administración Bitweb
             </h1>
             <p className="text-gray-600 mb-6 text-lg">
               Gestiona tu organización de manera eficiente con nuestra plataforma de administración.
@@ -47,7 +47,7 @@ const Welcome = ({ onShowLogin }) => {
                 Contacta al administrador del sistema para obtener tus credenciales de acceso.
               </p>
               <div className="bg-white bg-opacity-20 rounded-lg p-4 inline-block">
-                <p className="text-sm">Soporte técnico: soporte@empresa.com</p>
+                <p className="text-sm">Soporte técnico: soporte@bitweb.com.ar</p>
               </div>
             </div>
           </div>

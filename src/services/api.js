@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://bitweb.online/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://vps-5479958-x.dattaweb.com/api';
 
 const getAuthToken = () => {
   return localStorage.getItem('token');
