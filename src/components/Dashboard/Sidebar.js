@@ -4,11 +4,42 @@ import { useAuth } from '../../context/AuthContext';
 const Sidebar = ({ activeSection, setActiveSection }) => {
   const { user, logout } = useAuth();
 
-  const menuItems = [
+  /*const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     ...(user?.role === 'admin' ? [{ id: 'users', label: 'Usuarios', icon: '👥' }] : []),
+    // NUEVO: Solo super admins pueden ver la gestión de usuarios de clubes
+    ...(user?.role === 'super_admin' || user?.role === 'admin' ? [{ id: 'club-users', label: 'Usuarios de Clubes', icon: '🏢' }] : []),
     { id: 'profile', label: 'Perfil', icon: '👤' },
+  ];*/
+
+  // Menu base para todos los usuarios
+  const baseMenu = [
+    { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+    { id: 'profile', label: 'Perfil', icon: '👤' }
   ];
+
+  // Menu base para todos los admin
+  const adminMenu = [
+    { id: 'users', label: 'Usuarios', icon: '👥' },
+    { id: 'clubs', label: 'Clubes', icon: '🏟️' },
+    { id: 'club-users', label: 'Usuarios de Clubes', icon: '🏢' },
+    { id: 'system-admin', label: 'Admin del Sistema', icon: '⚙️' }
+  ];
+
+  // Menu para super administradores
+  const superAdminMenu = [
+    { id: 'clubs', label: 'Clubes', icon: '🏟️' },
+    { id: 'club-users', label: 'Usuarios', icon: '🏢' },
+    { id: 'system-admin', label: 'Admin del Sistema', icon: '⚙️' }
+  ];
+
+  let menuItems = [...baseMenu];
+
+  if (user?.role === 'super_admin') {
+    menuItems = [...baseMenu, ...superAdminMenu];
+  } else if (user?.role === 'admin') {
+    menuItems = [...baseMenu, ...adminMenu];
+  }
 
   return (
     <div className="w-64 bg-gray-800 text-white min-h-screen flex flex-col">

@@ -158,42 +158,42 @@ const UserManagement = () => {
     }
   };
 
-  const handleCreate = async (userData) => {
-    try {
-      setError('');
-      const result = await userService.createUser(userData);
-      setSuccessMessage('Usuario creado exitosamente');
-      setShowCreateModal(false);
-      loadUsers(); // Recargar la lista
-      
-      // Auto-ocultar mensaje de éxito después de 3 segundos
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      throw new Error(err.message || 'Error al crear usuario');
-    }
-  };
+const handleCreate = async (userData) => {
+  try {
+    setError('');
+    const result = await userService.createUser(userData);
+    setSuccessMessage('Usuario creado exitosamente');
+    setShowCreateModal(false);
+    loadUsers();
+    
+    setTimeout(() => setSuccessMessage(''), 3000);
+  } catch (err) {
+    // Mostrar el mensaje específico de la API
+    throw new Error(err.message);
+  }
+};
 
   const handleEdit = (user) => {
     setEditingUser(user);
     setShowEditModal(true);
   };
 
-  const handleUpdate = async (userData) => {
-    try {
-      setError('');
-      await userService.updateUser(editingUser.id, userData);
-      setShowEditModal(false);
-      setEditingUser(null);
-      setSuccessMessage('Usuario actualizado exitosamente');
-      loadUsers(); // Recargar la lista
-      
-      // Auto-ocultar mensaje de éxito después de 3 segundos
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      setError('Error al actualizar el usuario: ' + err.message);
-      console.error('Error updating user:', err);
-    }
-  };
+const handleUpdate = async (userData) => {
+  try {
+    setError('');
+    await userService.updateUser(editingUser.id, userData);
+    setShowEditModal(false);
+    setEditingUser(null);
+    setSuccessMessage('Usuario actualizado exitosamente');
+    loadUsers();
+    
+    setTimeout(() => setSuccessMessage(''), 3000);
+  } catch (err) {
+    // Mostrar el mensaje específico de la API
+    setError(err.message);
+    console.error('Error updating user:', err);
+  }
+};
 
   const handleDelete = async (userId) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este usuario?')) {
