@@ -1,596 +1,180 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { clubScheduleService, clubCategoryService, clubUserService } from '../../services/api';
 import { useClubAuth } from '../../context/ClubAuthContext';
+import { 
+  Calendar,
+  Clock,
+  Users,
+  MapPin,
+  User,
+  BookOpen,
+  Tag,
+  Plus,
+  RefreshCw,
+  Eye,
+  Edit,
+  Trash2,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Grid,
+  List,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  BarChart3,
+  CalendarDays,
+  Filter,
+  Download
+} from 'lucide-react';
 
-// Función para formatear hora
-function formatTime(timeString) {
-  if (!timeString) return '--:--';
-  try {
-    const timeParts = timeString.split(':');
-    if (timeParts.length >= 2) {
-      const hours = timeParts[0].padStart(2, '0');
-      const minutes = timeParts[1].padStart(2, '0');
-      return `${hours}:${minutes}`;
-    }
-    return timeString;
-  } catch (error) {
-    return '--:--';
-  }
-}
+// Importar componentes responsive
+import ResponsiveModal from '../ClubDashboard/ResponsiveModal';
+import ResponsiveDataTable from '../ClubDashboard/ResponsiveDataTable';
 
-// Función para obtener nombre del día en español basado en INT (0=Domingo, 1=Lunes, etc.)
-function getDayName(dayNumber) {
-  const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  
-  // Asegurarse de que dayNumber sea un número entre 0-6
-  const dayIndex = typeof dayNumber === 'string' ? parseInt(dayNumber, 10) : dayNumber;
-  
-  // Validar rango
-  if (dayIndex >= 0 && dayIndex < days.length) {
-    return days[dayIndex];
-  }
-  
-  return `Día ${dayNumber}`;
-}
-
-// Función para obtener el día en formato corto
-function getDayShortName(dayNumber) {
-  const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-  
-  // Asegurarse de que dayNumber sea un número entre 0-6
-  const dayIndex = typeof dayNumber === 'string' ? parseInt(dayNumber, 10) : dayNumber;
-  
-  // Validar rango
-  if (dayIndex >= 0 && dayIndex < days.length) {
-    return days[dayIndex];
-  }
-  
-  return `D${dayNumber}`;
-}
-
-// Función para generar eventos recurrentes desde created_at hasta 3 meses adelante
-function generateRecurringEvents(schedule) {
-  const events = [];
-  
-  // Parsear created_at a fecha
-  let startDate = new Date(schedule.created_at || new Date());
-  if (isNaN(startDate.getTime())) {
-    startDate = new Date(); // Si created_at es inválido, usar fecha actual
-  }
-  
-  // Calcular fecha de fin (3 meses después de created_at)
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + 3);
-  
-  // Obtener el día de la semana del schedule (0=Domingo, 1=Lunes, etc.)
-  const scheduleDayOfWeek = typeof schedule.day_of_week === 'string' 
-    ? parseInt(schedule.day_of_week, 10) 
-    : schedule.day_of_week;
-  
-  // Validar que scheduleDayOfWeek esté en el rango correcto
-  if (scheduleDayOfWeek === undefined || scheduleDayOfWeek === null || 
-      scheduleDayOfWeek < 0 || scheduleDayOfWeek > 6) {
-    console.warn('Día de la semana inválido:', scheduleDayOfWeek, 'en schedule:', schedule.id);
-    return events;
-  }
-  
-  // Encontrar la primera ocurrencia del día de la semana después de startDate
-  const firstOccurrence = new Date(startDate);
-  const currentDayOfWeek = firstOccurrence.getDay(); // getDay() devuelve 0=Domingo, 1=Lunes, etc.
-  
-  // Calcular días hasta el próximo scheduleDayOfWeek
-  let daysToAdd = scheduleDayOfWeek - currentDayOfWeek;
-  if (daysToAdd < 0) {
-    daysToAdd += 7;
-  }
-  
-  firstOccurrence.setDate(firstOccurrence.getDate() + daysToAdd);
-  
-  // Si la primera ocurrencia es hoy o en el futuro, incluirla
-  // Si es en el pasado, saltar a la próxima semana
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  if (firstOccurrence < today) {
-    firstOccurrence.setDate(firstOccurrence.getDate() + 7);
-  }
-  
-  // Generar eventos semanales hasta endDate
-  let currentDate = new Date(firstOccurrence);
-  
-  while (currentDate <= endDate) {
-    events.push({
-      id: `${schedule.id}-${currentDate.toISOString().split('T')[0]}`,
-      scheduleId: schedule.id,
-      date: new Date(currentDate),
-      dateString: currentDate.toISOString().split('T')[0],
-      dayOfWeek: scheduleDayOfWeek,
-      start_time: schedule.start_time,
-      end_time: schedule.end_time,
-      discipline_name: schedule.discipline_name,
-      category_name: schedule.category_name,
-      teacher_name: schedule.teacher_name,
-      room: schedule.room,
-      max_capacity: schedule.max_capacity,
-      enrolled_member: schedule.enrolled_member || 0,
-      status: schedule.status,
-      isRecurring: true,
-      originalSchedule: schedule
-    });
-    
-    // Avanzar 7 días para la próxima semana
-    currentDate.setDate(currentDate.getDate() + 7);
-  }
-  console.log('Eventos: ' +events);
-  return events;
-}
-
-// Componente de Vista de Calendario Semanal Mejorado
-const WeeklyCalendarView = ({ schedules, onEdit, onDelete }) => {
-  const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [viewMode, setViewMode] = useState('week'); // 'week' o 'day'
+// Componente simplificado de calendario para móvil
+const MobileCalendarView = ({ schedules, onEdit, onDelete }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
-  
-  // Generar todos los eventos recurrentes
-  const allEvents = useMemo(() => {
-    const events = [];
-    
-    schedules.forEach(schedule => {
-      if (schedule.status === 'active') {
-        const recurringEvents = generateRecurringEvents(schedule);
-        events.push(...recurringEvents);
-      }
+  const [viewMode, setViewMode] = useState('day'); // 'day' o 'week'
+
+  // Formatear fecha
+  const formatDate = (date) => {
+    return date.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
     });
-    
-    // Ordenar por fecha y hora
-    return events.sort((a, b) => {
-      const dateCompare = a.date.getTime() - b.date.getTime();
-      if (dateCompare !== 0) return dateCompare;
-      
-      const [aHour, aMinute] = a.start_time.split(':').map(Number);
-      const [bHour, bMinute] = b.start_time.split(':').map(Number);
-      return (aHour * 60 + aMinute) - (bHour * 60 + bMinute);
-    });
-  }, [schedules]);
-
-  // Horarios del día (de 6 AM a 10 PM)
-  const timeSlots = useMemo(() => {
-    const slots = [];
-    for (let hour = 0; hour <= 23; hour++) {
-      slots.push(`${hour.toString().padStart(2, '0')}:00`);
-    }
-    return slots;
-  }, []);
-
-  // Días de la semana actual o días del mes según viewMode
-  const calendarDays = useMemo(() => {
-    if (viewMode === 'week') {
-      const days = [];
-      const startOfWeek = new Date(currentWeek);
-      startOfWeek.setDate(currentWeek.getDate() - currentWeek.getDay()); // Domingo como inicio
-      
-      for (let i = 0; i < 7; i++) {
-        const day = new Date(startOfWeek);
-        day.setDate(startOfWeek.getDate() + i);
-        days.push({
-          date: day,
-          dayOfWeek: i, // 0 = Domingo, 1 = Lunes, etc.
-          dayName: getDayShortName(i),
-          dateString: day.toISOString().split('T')[0],
-          isToday: day.toDateString() === new Date().toDateString()
-        });
-      }
-      return days;
-    } else {
-      // Modo día - solo el día seleccionado
-      return [{
-        date: selectedDate,
-        dayOfWeek: selectedDate.getDay(),
-        dayName: getDayShortName(selectedDate.getDay()),
-        dateString: selectedDate.toISOString().split('T')[0],
-        isToday: selectedDate.toDateString() === new Date().toDateString()
-      }];
-    }
-  }, [currentWeek, viewMode, selectedDate]);
-
-  // Filtrar eventos por rango de fechas
-  const filteredEvents = useMemo(() => {
-    if (calendarDays.length === 0) return [];
-    
-    const startDate = new Date(calendarDays[0].date);
-    const endDate = new Date(calendarDays[calendarDays.length - 1].date);
-    endDate.setHours(23, 59, 59, 999);
-    
-    return allEvents.filter(event => {
-      const eventDate = new Date(event.date);
-      eventDate.setHours(0, 0, 0, 0);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(0, 0, 0, 0);
-      
-      return eventDate >= startDate && eventDate <= endDate;
-    });
-  }, [allEvents, calendarDays]);
-
-  // Obtener eventos para un día específico
-  const getEventsForDay = (dateString) => {
-    return filteredEvents.filter(event => event.dateString === dateString);
   };
 
-  // Calcular posición y altura de cada evento
-  const calculateEventPosition = (event) => {
-    if (!event.start_time || !event.end_time) {
-      return { top: '0%', height: '0%' };
-    }
-    
-    try {
-      const [startHour, startMinute] = event.start_time.split(':').map(Number);
-      const [endHour, endMinute] = event.end_time.split(':').map(Number);
-      
-      const startTimeInMinutes = startHour * 60 + startMinute;
-      const endTimeInMinutes = endHour * 60 + endMinute;
-      const durationInMinutes = endTimeInMinutes - startTimeInMinutes;
-      
-      // La cuadrícula empieza a las 6:00 AM (360 minutos)
-      const top = ((startTimeInMinutes - 360) / 60) * 100; // En porcentaje
-      const height = (durationInMinutes / 60) * 100; // En porcentaje
-      
-      return { top: `${Math.max(0, top)}%`, height: `${Math.max(0, height)}%` };
-    } catch (error) {
-      console.error('Error calculando posición del evento:', error, event);
-      return { top: '0%', height: '0%' };
-    }
-  };
-
-  // Navegación entre semanas/días
-  const goToPrevious = () => {
-    if (viewMode === 'week') {
-      setCurrentWeek(prev => {
-        const newDate = new Date(prev);
-        newDate.setDate(prev.getDate() - 7);
-        return newDate;
-      });
-    } else {
-      setSelectedDate(prev => {
-        const newDate = new Date(prev);
-        newDate.setDate(prev.getDate() - 1);
-        return newDate;
-      });
-    }
-  };
-
-  const goToNext = () => {
-    if (viewMode === 'week') {
-      setCurrentWeek(prev => {
-        const newDate = new Date(prev);
-        newDate.setDate(prev.getDate() + 7);
-        return newDate;
-      });
-    } else {
-      setSelectedDate(prev => {
-        const newDate = new Date(prev);
-        newDate.setDate(prev.getDate() + 1);
-        return newDate;
-      });
-    }
-  };
-
-  const goToToday = () => {
+  // Obtener eventos del día
+  const getTodayEvents = () => {
     const today = new Date();
-    setCurrentWeek(today);
-    setSelectedDate(today);
-  };
-
-  // Obtener el rango de fechas visible
-  const getDateRange = () => {
-    if (viewMode === 'week') {
-      const start = new Date(calendarDays[0].date);
-      const end = new Date(calendarDays[6].date);
-      
-      const startMonth = start.toLocaleDateString('es-AR', { month: 'short' });
-      const endMonth = end.toLocaleDateString('es-AR', { month: 'short' });
-      
-      if (start.getMonth() === end.getMonth()) {
-        return `${start.getDate()} - ${end.getDate()} de ${endMonth} ${end.getFullYear()}`;
-      } else {
-        return `${start.getDate()} ${startMonth} - ${end.getDate()} ${endMonth} ${end.getFullYear()}`;
-      }
-    } else {
-      return selectedDate.toLocaleDateString('es-AR', { 
-        weekday: 'long', 
-        day: 'numeric', 
-        month: 'long', 
-        year: 'numeric' 
-      });
-    }
-  };
-
-  // Colores para diferentes disciplinas
-  const getDisciplineColor = (disciplineName) => {
-    const colors = [
-      'bg-blue-100 border-blue-300 hover:bg-blue-200',
-      'bg-green-100 border-green-300 hover:bg-green-200',
-      'bg-yellow-100 border-yellow-300 hover:bg-yellow-200',
-      'bg-purple-100 border-purple-300 hover:bg-purple-200',
-      'bg-pink-100 border-pink-300 hover:bg-pink-200',
-      'bg-indigo-100 border-indigo-300 hover:bg-indigo-200',
-      'bg-teal-100 border-teal-300 hover:bg-teal-200',
-      'bg-orange-100 border-orange-300 hover:bg-orange-200',
-      'bg-red-100 border-red-300 hover:bg-red-200',
-      'bg-cyan-100 border-cyan-300 hover:bg-cyan-200',
-    ];
+    const dayOfWeek = today.getDay(); // 0 = Domingo, 1 = Lunes, etc.
     
-    if (!disciplineName) {
-      return colors[0];
-    }
-    
-    // Generar un índice basado en el nombre de la disciplina
-    let hash = 0;
-    for (let i = 0; i < disciplineName.length; i++) {
-      hash = disciplineName.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    const index = Math.abs(hash) % colors.length;
-    
-    return colors[index];
+    return schedules.filter(schedule => 
+      schedule.status === 'active' && 
+      parseInt(schedule.day_of_week) === dayOfWeek
+    );
   };
 
-  // Calcular estadísticas
-  const getStats = () => {
-    const totalEvents = filteredEvents.length;
-    const uniqueDisciplines = new Set(filteredEvents.map(e => e.discipline_name)).size;
-    const totalCapacity = filteredEvents.reduce((sum, e) => sum + (parseInt(e.max_capacity) || 0), 0);
-    const totalEnrolled = filteredEvents.reduce((sum, e) => sum + (parseInt(e.enrolled_member) || 0), 0);
-        console.log( totalEvents, uniqueDisciplines, totalCapacity, totalEnrolled);
-    return { totalEvents, uniqueDisciplines, totalCapacity, totalEnrolled };
-  };
-
-  const stats = getStats();
+  const todayEvents = getTodayEvents();
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4">
-      {/* Controles de navegación */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div className="flex items-center space-x-4">
+    <div className="bg-white rounded-xl shadow p-4">
+      {/* Header del calendario */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-800">Calendario</h3>
+        <div className="flex items-center space-x-2">
           <button
-            onClick={goToToday}
-            className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm transition-colors"
+            onClick={() => setViewMode('day')}
+            className={`px-3 py-1 rounded-lg text-sm ${viewMode === 'day' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
           >
-            Hoy
+            Día
           </button>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={goToPrevious}
-              className="p-1 hover:bg-gray-100 rounded-full"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <span className="text-lg font-semibold text-gray-800">
-              {getDateRange()}
-            </span>
-            <button
-              onClick={goToNext}
-              className="p-1 hover:bg-gray-100 rounded-full"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          {/* Selector de vista */}
-          <div className="flex bg-gray-100 rounded-md p-1">
-            <button
-              onClick={() => setViewMode('week')}
-              className={`px-3 py-1 text-sm font-medium rounded ${viewMode === 'week' ? 'bg-white shadow' : 'text-gray-600'}`}
-            >
-              Semana
-            </button>
-            <button
-              onClick={() => setViewMode('day')}
-              className={`px-3 py-1 text-sm font-medium rounded ${viewMode === 'day' ? 'bg-white shadow' : 'text-gray-600'}`}
-            >
-              Día
-            </button>
-          </div>
-          
-          {/* Estadísticas */}
-          <div className="hidden md:flex items-center space-x-4 text-sm text-gray-600">
-            <div className="flex items-center space-x-1">
-              <span className="font-semibold">{stats.totalEvents}</span>
-              <span>clases</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="font-semibold">{stats.uniqueDisciplines}</span>
-              <span>disciplinas</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className="font-semibold">{stats.totalEnrolled}/{stats.totalCapacity}</span>
-              <span>cupos</span>
-            </div>
-          </div>
+          <button
+            onClick={() => setViewMode('week')}
+            className={`px-3 py-1 rounded-lg text-sm ${viewMode === 'week' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+          >
+            Semana
+          </button>
         </div>
       </div>
 
-      {/* Calendario */}
-      <div className="overflow-x-auto">
-        <div className="min-w-max">
-          {/* Cabecera con días */}
-          <div className="flex border-b border-gray-200">
-            {/* Columna de horas */}
-            <div className="w-16 border-r border-gray-200 bg-gray-50"></div>
-            
-            {/* Días de la semana o día único */}
-            {calendarDays.map((day) => {
-              const dayEvents = getEventsForDay(day.dateString);
-              
-              return (
-                <div 
-                  key={day.dateString} 
-                  className={`flex-1 min-w-[150px] text-center py-3 border-r border-gray-200 ${day.isToday ? 'bg-blue-50' : 'bg-gray-50'}`}
-                >
-                  <div className={`text-sm font-semibold ${day.isToday ? 'text-blue-600' : 'text-gray-600'}`}>
-                    {day.dayName}
-                  </div>
-                  <div className={`text-lg font-bold ${day.isToday ? 'text-blue-800' : 'text-gray-800'}`}>
-                    {day.date.getDate()}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {dayEvents.length} {dayEvents.length === 1 ? 'clase' : 'clases'}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {day.date.toLocaleDateString('es-AR', { month: 'short' })}
-                  </div>
-                </div>
-              );
-            })}
+      {/* Fecha actual */}
+      <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+        <p className="text-sm text-blue-800 font-medium">{formatDate(new Date())}</p>
+        <p className="text-xs text-blue-600">Hoy</p>
+      </div>
+
+      {/* Clases de hoy */}
+      <div className="space-y-3">
+        <h4 className="font-medium text-gray-700">Clases de hoy:</h4>
+        
+        {todayEvents.length === 0 ? (
+          <div className="text-center py-8">
+            <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+            <p className="text-gray-500">No hay clases programadas para hoy</p>
           </div>
-
-          {/* Cuerpo del calendario */}
-          <div className="flex relative">
-            {/* Columna de horas */}
-            <div className="w-16 border-r border-gray-200">
-              {timeSlots.map((time, index) => (
-                <div 
-                  key={time} 
-                  className="h-12 border-b border-gray-100 relative"
-                  style={{ minHeight: '60px' }}
-                >
-                  <div className="absolute -top-2 right-1 text-xs text-gray-400">
-                    {time}
+        ) : (
+          todayEvents.map((schedule) => (
+            <div 
+              key={schedule.id}
+              className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                      {schedule.discipline_name?.charAt(0) || 'C'}
+                    </div>
+                    <div>
+                      <h5 className="font-semibold text-gray-900">{schedule.discipline_name}</h5>
+                      <p className="text-sm text-gray-600">{schedule.category_name}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Grid de días */}
-            <div className="flex flex-1">
-              {calendarDays.map((day) => {
-                const dayEvents = getEventsForDay(day.dateString);
-                
-                return (
-                  <div 
-                    key={day.dateString} 
-                    className="flex-1 min-w-[150px] border-r border-gray-200 relative"
-                    style={{ minHeight: `${timeSlots.length * 60}px` }}
-                  >
-                    {/* Líneas de hora */}
-                    {timeSlots.map((time, index) => (
-                      <div 
-                        key={`${day.dateString}-${time}`} 
-                        className="absolute w-full border-b border-gray-100"
-                        style={{ 
-                          top: `${(index / timeSlots.length) * 100}%`,
-                          height: '1px'
-                        }}
-                      />
-                    ))}
-                    
-                    {/* Eventos recurrentes */}
-                    {dayEvents.map((event) => {
-                      const position = calculateEventPosition(event);
-                      const colorClass = getDisciplineColor(event.discipline_name || 'General');
-                      
-                      return (
-                        <div
-                          key={event.id}
-                          className={`absolute left-1 right-1 rounded-md border p-2 overflow-hidden cursor-pointer transition-all duration-200 ${colorClass}`}
-                          style={{
-                            top: position.top,
-                            height: position.height,
-                            zIndex: 10
-                          }}
-                          onClick={() => onEdit(event.originalSchedule)}
-                          title={`${event.discipline_name} - ${event.category_name}\n${formatTime(event.start_time)} - ${formatTime(event.end_time)}\nProf: ${event.teacher_name}\nFecha: ${event.date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}\nCupos: ${event.enrolled_member}/${event.max_capacity || '∞'}`}
-                        >
-                          <div className="font-semibold text-xs truncate">
-                            {event.discipline_name}
-                          </div>
-                          <div className="text-xs truncate text-gray-600">
-                            {event.category_name}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {formatTime(event.start_time)} - {formatTime(event.end_time)}
-                          </div>
-                          <div className="text-xs truncate text-gray-600 mt-1">
-                            {event.teacher_name}
-                          </div>
-                          {event.room && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              📍 {event.room}
-                            </div>
-                          )}
-                          <div className="flex justify-between items-center mt-2">
-                            <div className="text-xs">
-                              👥 {event.enrolled_member || 0}/{event.max_capacity || '∞'}
-                            </div>
-                            <div className="flex space-x-1">
-                              <div className="text-xs bg-blue-100 text-blue-800 px-1 rounded text-xs">
-                                {event.date.getDate()}/{event.date.getMonth() + 1}
-                              </div>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onDelete(event.scheduleId);
-                                }}
-                                className="text-xs text-red-600 hover:text-red-800"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                    
-                    {/* Mensaje si no hay eventos */}
-                    {dayEvents.length === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-gray-400 text-sm">Sin clases programadas</span>
+                  
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="flex items-center space-x-1 text-sm text-gray-600">
+                      <Clock size={14} />
+                      <span>{schedule.start_time} - {schedule.end_time}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 text-sm text-gray-600">
+                      <User size={14} />
+                      <span>{schedule.teacher_name}</span>
+                    </div>
+                    {schedule.room && (
+                      <div className="flex items-center space-x-1 text-sm text-gray-600">
+                        <MapPin size={14} />
+                        <span>{schedule.room}</span>
                       </div>
                     )}
+                    <div className="flex items-center space-x-1 text-sm text-gray-600">
+                      <Users size={14} />
+                      <span>{schedule.enrolled_member || 0}/{schedule.max_capacity}</span>
+                    </div>
                   </div>
-                );
-              })}
+                </div>
+                
+                <div className="flex flex-col space-y-1 ml-2">
+                  <button
+                    onClick={() => onEdit(schedule)}
+                    className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => onDelete(schedule.id)}
+                    className="p-1 text-red-600 hover:bg-red-50 rounded"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          ))
+        )}
       </div>
 
-      {/* Información y leyenda */}
+      {/* Estadísticas rápidas */}
       <div className="mt-6 pt-4 border-t border-gray-200">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          {/* Leyenda */}
-          <div className="flex-1">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm font-medium text-gray-700 mr-2">Leyenda por disciplina:</span>
-              {Array.from(new Set(filteredEvents.map(e => e.discipline_name))).slice(0, 5).map((discipline, index) => (
-                <div key={discipline} className="flex items-center space-x-1">
-                  <div 
-                    className={`w-3 h-3 rounded ${getDisciplineColor(discipline).split(' ')[0]}`}
-                  />
-                  <span className="text-xs text-gray-600">{discipline}</span>
-                </div>
-              ))}
-              {Array.from(new Set(filteredEvents.map(e => e.discipline_name))).length > 5 && (
-                <span className="text-xs text-gray-500">
-                  +{Array.from(new Set(filteredEvents.map(e => e.discipline_name))).length - 5} más
-                </span>
-              )}
-            </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="text-center p-2 bg-green-50 rounded">
+            <p className="text-xl font-bold text-green-700">{todayEvents.length}</p>
+            <p className="text-xs text-green-600">Clases hoy</p>
           </div>
-          
-          {/* Información del periodo */}
-          <div className="text-sm text-gray-600">
-            <div className="flex items-center space-x-2">
-              <span className="text-green-600">●</span>
-              <span>Mostrando clases desde hoy hasta 3 meses adelante</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Total de eventos generados: {allEvents.length}
-            </div>
+          <div className="text-center p-2 bg-blue-50 rounded">
+            <p className="text-xl font-bold text-blue-700">
+              {schedules.filter(s => s.status === 'active').length}
+            </p>
+            <p className="text-xs text-blue-600">Activos</p>
+          </div>
+          <div className="text-center p-2 bg-purple-50 rounded">
+            <p className="text-xl font-bold text-purple-700">
+              {[...new Set(schedules.map(s => s.discipline_name))].length}
+            </p>
+            <p className="text-xs text-purple-600">Disciplinas</p>
           </div>
         </div>
       </div>
@@ -598,30 +182,23 @@ const WeeklyCalendarView = ({ schedules, onEdit, onDelete }) => {
   );
 };
 
-const ClubSchedulesManagement = () => {
+const ClubSchedulesManagement = ({ openModal, closeModal }) => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [editingSchedule, setEditingSchedule] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
   
-  // Nueva pestaña para vista de calendario
-  const [activeTab, setActiveTab] = useState('list'); // 'list' o 'calendar'
-
-  // Estados para DataTable
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('name');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  // Estados para las dependencias
   const [disciplines, setDisciplines] = useState([]);
   const [categories, setCategories] = useState([]);
   const [teachers, setTeachers] = useState([]);
   
   const { user: currentUser } = useClubAuth();
-  const [selectedSchedule, setSelectedSchedule] = useState('');
 
   useEffect(() => {
     loadSchedules();
@@ -632,90 +209,67 @@ const ClubSchedulesManagement = () => {
       setLoading(true);
       setError('');
 
-      // Cargar categorías del club
+      // Cargar categorías
       const categoryData = await clubCategoryService.getCategoriesByClubId(currentUser.club_id);
       const activeCategories = categoryData.filter(category => category.status === 'active');
       setCategories(activeCategories);
       
-      // Cargar disciplinas del club
+      // Cargar disciplinas
       const disciplineData = await clubCategoryService.getDisciplinesByClubId(currentUser.club_id);
       const activeDisciplines = disciplineData.filter(discipline => discipline.status === 'active');
       setDisciplines(activeDisciplines);
 
-      // Cargar profesores del club
+      // Cargar profesores
       const teacherData = await clubUserService.getUsersByClubId(currentUser.club_id);
-      const activeTeachers = teacherData.filter(teacher => teacher.status === 'active' && teacher.role === 'teacher');
+      const activeTeachers = teacherData.filter(teacher => 
+        teacher.status === 'active' && teacher.role === 'teacher'
+      );
       setTeachers(activeTeachers);
 
-      // Cargar cronogramas del mismo club
+      // Cargar horarios
       const schedulesData = await clubScheduleService.getSchedulesByClubId(currentUser.club_id);
       setSchedules(schedulesData);
 
     } catch (err) {
-      setError(err.message);
+      setError('Error al cargar los horarios: ' + err.message);
       console.error('Error loading schedules:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para ordenar los datos
-  const sortedAndFilteredSchedules = useMemo(() => {
-    let filtered = schedules.filter(schedule => 
-      schedule.teacher_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      schedule.category_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      schedule.discipline_name?.toLowerCase().includes(searchTerm.toLowerCase()) 
-    );
-
-    // Ordenar
-    filtered.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Manejar valores nulos o undefined
-      if (aValue == null) aValue = '';
-      if (bValue == null) bValue = '';
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [schedules, searchTerm, sortField, sortDirection]);
-
-  // Paginación
-  const paginatedSchedules = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedAndFilteredSchedules.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedAndFilteredSchedules, currentPage, itemsPerPage]);
-
-  const totalPages = Math.ceil(sortedAndFilteredSchedules.length / itemsPerPage);
-
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
+  // Función para obtener nombre del día
+  const getDayName = (dayNumber) => {
+    const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const dayIndex = typeof dayNumber === 'string' ? parseInt(dayNumber, 10) : dayNumber;
+    
+    if (dayIndex >= 0 && dayIndex < days.length) {
+      return days[dayIndex];
     }
-    setCurrentPage(1);
+    
+    return `Día ${dayNumber}`;
   };
 
-  const getSortIcon = (field) => {
-    if (sortField !== field) {
-      return <span className="text-gray-400">↕</span>;
+  // Función para formatear hora
+  const formatTime = (timeString) => {
+    if (!timeString) return '--:--';
+    try {
+      const timeParts = timeString.split(':');
+      if (timeParts.length >= 2) {
+        const hours = timeParts[0].padStart(2, '0');
+        const minutes = timeParts[1].padStart(2, '0');
+        return `${hours}:${minutes}`;
+      }
+      return timeString;
+    } catch (error) {
+      return '--:--';
     }
-    return sortDirection === 'asc' ? 
-      <span className="text-blue-500">↑</span> : 
-      <span className="text-blue-500">↓</span>;
   };
 
   const handleCreate = async (scheduleData) => {
     try {
       setError('');
       
-      // Convertir día de la semana de string a int si es necesario
       const processedData = {
         ...scheduleData,
         day_of_week: parseInt(scheduleData.day_of_week, 10),
@@ -723,26 +277,30 @@ const ClubSchedulesManagement = () => {
       };
       
       await clubScheduleService.createSchedule(processedData);
-      setSuccessMessage('Cronograma creado exitosamente');
-      setShowCreateModal(false);
+      setSuccessMessage('Horario creado exitosamente');
+      setIsCreateModalOpen(false);
       loadSchedules();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      throw new Error(err.message || 'Error al crear cronograma');
+      throw new Error(err.message || 'Error al crear horario');
     }
   };
 
   const handleEdit = (schedule) => {
     setEditingSchedule(schedule);
-    setShowEditModal(true);
+    setIsEditModalOpen(true);
+  };
+
+  const handleView = (schedule) => {
+    setSelectedSchedule(schedule);
+    setIsViewModalOpen(true);
   };
 
   const handleUpdate = async (scheduleData) => {
     try {
       setError('');
       
-      // Convertir día de la semana de string a int si es necesario
       const processedData = {
         ...scheduleData,
         day_of_week: parseInt(scheduleData.day_of_week, 10),
@@ -750,399 +308,346 @@ const ClubSchedulesManagement = () => {
       };
       
       await clubScheduleService.updateSchedule(editingSchedule.id, processedData);
-      setShowEditModal(false);
+      setIsEditModalOpen(false);
       setEditingSchedule(null);
-      setSuccessMessage('Cronograma actualizada exitosamente');
+      setSuccessMessage('Horario actualizado exitosamente');
       loadSchedules();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Error al actualizar la cronograma: ' + err.message);
+      setError('Error al actualizar el horario: ' + err.message);
       console.error('Error updating schedule:', err);
     }
   };
 
   const handleDelete = async (scheduleId) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este cronograma? Esto eliminará todas las clases recurrentes programadas.')) {
-      try {
-        setError('');
-        await clubScheduleService.deleteSchedule(scheduleId);
-        setSuccessMessage('Cronograma eliminado exitosamente');
-        loadSchedules();
+    const scheduleToDelete = schedules.find(s => s.id === scheduleId);
+    
+    openModal(
+      'Confirmar Eliminación',
+      <div className="space-y-4">
+        <div className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
+          <Trash2 className="text-red-500" size={24} />
+          <div>
+            <p className="font-semibold text-red-800">¿Estás seguro de eliminar este horario?</p>
+            <p className="text-sm text-red-600 mt-1">
+              Se eliminará: <strong>{scheduleToDelete?.discipline_name} - {scheduleToDelete?.category_name}</strong>
+            </p>
+            <p className="text-xs text-red-500 mt-2">
+              Esta acción eliminará todas las clases recurrentes asociadas
+            </p>
+          </div>
+        </div>
         
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (err) {
-        setError('Error al eliminar el cronograma: ' + err.message);
-        console.error('Error deleting schedule:', err);
-      }
-    }
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={closeModal}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setError('');
+                await clubScheduleService.deleteSchedule(scheduleId);
+                setSuccessMessage('Horario eliminado exitosamente');
+                closeModal();
+                loadSchedules();
+                
+                setTimeout(() => setSuccessMessage(''), 3000);
+              } catch (err) {
+                setError('Error al eliminar el horario: ' + err.message);
+                closeModal();
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Eliminar Horario
+          </button>
+        </div>
+      </div>,
+      'sm'
+    );
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Cargando cronogramas del club...</div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-lg text-gray-600">Cargando horarios del club...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Cronogramas</h2>
-          <p className="text-gray-600">Total: {sortedAndFilteredSchedules.length} cronogramas activos</p>
+          <h2 className="text-2xl font-bold text-gray-800">Horarios del Club</h2>
+          <p className="text-gray-600 mt-1">Organiza las clases y horarios de las actividades</p>
         </div>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Crear Cronograma</span>
-          </button>
+        
+        <div className="flex flex-wrap gap-2">
+          <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-600">
+            Total: <span className="font-bold">{schedules.length}</span> horarios
+          </div>
+          
           <button
             onClick={loadSchedules}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
-            Actualizar
+            <RefreshCw size={18} />
+            <span>Actualizar</span>
+          </button>
+          
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={18} />
+            <span>Nuevo</span>
           </button>
         </div>
       </div>
 
+      {/* Mensajes de éxito/error */}
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-          {successMessage}
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <CheckCircle size={20} />
+          <span>{successMessage}</span>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <XCircle size={20} />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Pestañas */}
-      <div className="mb-6">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('list')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'list' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
-                <span>Lista de Cronogramas</span>
+      {/* Resumen estadístico */}
+      {schedules.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Horarios Activos</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {schedules.filter(s => s.status === 'active').length}
+                </p>
               </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('calendar')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'calendar' 
-                ? 'border-blue-500 text-blue-600' 
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              <div className="flex items-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span>Calendario de Clases (3 meses)</span>
-              </div>
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {/* Contenido según pestaña activa */}
-      {activeTab === 'list' ? (
-        <>
-          {/* Barra de búsqueda y controles (solo para lista) */}
-          <div className="bg-white rounded-lg shadow p-4 mb-6">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-              <div className="relative flex-1 max-w-md">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-400">🔍</span>
-                </div>
-                <input
-                  type="text"
-                  placeholder="Buscar por disciplina, categoría o profesor..."
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-400">📊</span>
-                  <span className="text-sm text-gray-600">Mostrar:</span>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-              </div>
+              <Calendar className="text-green-500" size={24} />
             </div>
           </div>
-
-          {sortedAndFilteredSchedules.length === 0 ? (
-            <div className="bg-white rounded-lg shadow p-8 text-center">
-              <p className="text-gray-600 mb-4">
-                {searchTerm ? 'No se encontraron cronogramas que coincidan con la búsqueda' : 'No se encontraron cronogramas en este club'}
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                Crear Primer Cronograma
-              </button>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('discipline_name')} >
-                        <div className="flex items-center space-x-1">
-                          <span>Disciplina</span>
-                          {getSortIcon('discipline_name')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('category_name')} >
-                        <div className="flex items-center space-x-1">
-                          <span>Categoría</span>
-                          {getSortIcon('category_name')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('teacher_name')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Profesor/a</span>
-                          {getSortIcon('teacher_name')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('day_of_week')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Día</span>
-                          {getSortIcon('day_of_week')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('start_time')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Inicio</span>
-                          {getSortIcon('start_time')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('end_time')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Fin</span>
-                          {getSortIcon('end_time')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('max_capacity')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Capacidad</span>
-                          {getSortIcon('max_capacity')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('room')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Área</span>
-                          {getSortIcon('room')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('enrolled_member')} >
-                        <div className="flex items-center space-x-1">
-                          <span >Inscriptos</span>
-                          {getSortIcon('enrolled_member')}
-                        </div>
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Estado
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedSchedules.map((schedule) => (
-                      <tr key={schedule.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
-                              {schedule.discipline_name?.charAt(0).toUpperCase() || 'U'}
-                              {schedule.category_name?.charAt(0).toUpperCase() || 'U'}
-                            </div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {schedule.discipline_name} 
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {schedule.category_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {schedule.teacher_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {getDayName(schedule.day_of_week)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatTime(schedule.start_time)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatTime(schedule.end_time)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {schedule.max_capacity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {schedule.room}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            schedule.enrolled_member >= 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {schedule.enrolled_member || 0}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            schedule.status === 'active' 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {schedule.status === 'active' ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                          <button
-                            onClick={() => handleEdit(schedule)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Editar
-                          </button>
-                          
-                            <button
-                              onClick={() => handleDelete(schedule.id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Eliminar
-                            </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Disciplinas</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {[...new Set(schedules.map(s => s.discipline_name))].length}
+                </p>
               </div>
-
-              {/* Paginación */}
-              {totalPages > 1 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a{' '}
-                        <span className="font-medium">
-                          {Math.min(currentPage * itemsPerPage, sortedAndFilteredSchedules.length)}
-                        </span> de{' '}
-                        <span className="font-medium">{sortedAndFilteredSchedules.length}</span> resultados
-                      </p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Anterior
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        Siguiente
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <BookOpen className="text-blue-500" size={24} />
             </div>
-          )}
-        </>
-      ) : (
-        // Vista de Calendario con eventos recurrentes
-        <WeeklyCalendarView 
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Profesores</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {[...new Set(schedules.map(s => s.teacher_name))].length}
+                </p>
+              </div>
+              <Users className="text-purple-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Cupos</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {schedules.reduce((sum, s) => sum + (parseInt(s.max_capacity) || 0), 0)}
+                </p>
+              </div>
+              <BarChart3 className="text-orange-500" size={24} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vista móvil del calendario */}
+      <div className="md:hidden mb-6">
+        <MobileCalendarView 
           schedules={schedules}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
-      )}
+      </div>
 
-      {/* Modales - ACTUALIZADOS para manejar INT en day_of_week */}
-      {showCreateModal && (
-        <CreateScheduleModal
-          onSave={handleCreate}
-          onClose={() => setShowCreateModal(false)}
-          schedules={schedules}
-          categories={categories}
-          disciplines={disciplines}
-          teachers={teachers}
+      {/* DataTable para desktop y lista móvil */}
+      {schedules.length === 0 ? (
+        <div className="bg-white rounded-xl shadow p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar size={32} className="text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay horarios registrados</h3>
+          <p className="text-gray-600 mb-6">Crea horarios para organizar las clases de tu club</p>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-2"
+          >
+            <Plus size={18} />
+            <span>Crear Primer Horario</span>
+          </button>
+        </div>
+      ) : (
+        <ResponsiveDataTable
+          data={schedules}
+          columns={[
+            { 
+              key: 'discipline', 
+              label: 'Disciplina',
+              render: (_, item) => (
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                    {item.discipline_name?.charAt(0).toUpperCase() || 'D'}
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900">{item.discipline_name}</div>
+                    <div className="text-xs text-gray-500">{item.category_name}</div>
+                  </div>
+                </div>
+              )
+            },
+            { 
+              key: 'teacher_name', 
+              label: 'Profesor',
+              render: (value) => value || 'No asignado'
+            },
+            { 
+              key: 'day_of_week', 
+              label: 'Día',
+              render: (value) => (
+                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                  {getDayName(value)}
+                </span>
+              )
+            },
+            { 
+              key: 'time', 
+              label: 'Horario',
+              render: (_, item) => (
+                <div className="flex items-center space-x-1">
+                  <Clock size={12} className="text-gray-400" />
+                  <span className="text-sm">
+                    {formatTime(item.start_time)} - {formatTime(item.end_time)}
+                  </span>
+                </div>
+              )
+            },
+            { 
+              key: 'capacity', 
+              label: 'Cupos',
+              render: (_, item) => (
+                <div className="flex items-center space-x-1">
+                  <Users size={12} className="text-gray-400" />
+                  <span className="text-sm">
+                    {item.enrolled_member || 0}/{item.max_capacity || '∞'}
+                  </span>
+                </div>
+              )
+            },
+            { 
+              key: 'status', 
+              label: 'Estado',
+              render: (value) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  value === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {value === 'active' ? 'Activo' : 'Inactivo'}
+                </span>
+              )
+            }
+          ]}
+          itemsPerPage={10}
+          searchable={true}
+          downloadable={true}
+          actions={[
+            {
+              label: 'Ver',
+              icon: <Eye size={14} />,
+              onClick: (item) => handleView(item)
+            },
+            {
+              label: 'Editar',
+              icon: <Edit size={14} />,
+              onClick: (item) => handleEdit(item)
+            },
+            {
+              label: 'Eliminar',
+              icon: <Trash2 size={14} />,
+              variant: 'danger',
+              onClick: (item) => handleDelete(item.id)
+            }
+          ]}
+          onRowClick={(item) => handleView(item)}
         />
       )}
 
-      {showEditModal && editingSchedule && (
+      {/* Modal para crear horario */}
+      <CreateScheduleModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleCreate}
+        teachers={teachers}
+        disciplines={disciplines}
+        categories={categories}
+      />
+
+      {/* Modal para editar horario */}
+      {editingSchedule && (
         <EditScheduleModal
-          schedule={editingSchedule}
-          onSave={handleUpdate}
+          isOpen={isEditModalOpen}
           onClose={() => {
-            setShowEditModal(false);
+            setIsEditModalOpen(false);
             setEditingSchedule(null);
           }}
-          schedules={schedules}
-          categories={categories}
-          disciplines={disciplines}
+          schedule={editingSchedule}
+          onSave={handleUpdate}
           teachers={teachers}
+          disciplines={disciplines}
+          categories={categories}
+        />
+      )}
+
+      {/* Modal para ver detalles del horario */}
+      {selectedSchedule && (
+        <ViewScheduleModal
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setSelectedSchedule(null);
+          }}
+          schedule={selectedSchedule}
+          formatTime={formatTime}
+          getDayName={getDayName}
         />
       )}
     </div>
   );
 };
 
-// Componente CreateScheduleModal ACTUALIZADO para manejar INT
-const CreateScheduleModal = ({ 
-  onSave, 
-  onClose, 
-  teachers,
-  disciplines,
-  categories
-}) => {
+// Modal para crear horario
+const CreateScheduleModal = ({ isOpen, onClose, onSave, teachers, disciplines, categories }) => {
   const [formData, setFormData] = useState({
     discipline_id: '',
     teacher_id: '',
@@ -1150,36 +655,31 @@ const CreateScheduleModal = ({
     end_time: '',
     category_id: '',
     room: '',
-    day_of_week: '', // Mantener como string para el select, luego convertir a INT
-    max_capacity: '',
+    day_of_week: '',
+    max_capacity: '20',
     status: 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Filtrar categorías basadas en la disciplina seleccionada
-  const filteredCategories = useMemo(() => {
-    if (!formData.discipline_id) {
-      return categories;
-    }
-    return categories.filter(category => 
-      category.discipline_id === parseInt(formData.discipline_id)
-    );
-  }, [formData.discipline_id, categories]);
+  const filteredCategories = disciplines.find(d => d.id === parseInt(formData.discipline_id))
+    ? categories.filter(c => c.discipline_id === parseInt(formData.discipline_id))
+    : [];
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setLoading(true);
     setError('');
-    
+
     // Validaciones
-    if (!formData.teacher_id || !formData.day_of_week || !formData.category_id || !formData.start_time || !formData.end_time ) {
+    if (!formData.teacher_id || !formData.day_of_week || !formData.category_id || 
+        !formData.start_time || !formData.end_time || !formData.max_capacity) {
       setError('Todos los campos marcados con * son obligatorios');
       setLoading(false);
       return;
     }
 
-    // Validar que la hora de fin sea mayor que la de inicio
+    // Validar horas
     if (formData.start_time && formData.end_time) {
       const [startHour, startMinute] = formData.start_time.split(':').map(Number);
       const [endHour, endMinute] = formData.end_time.split(':').map(Number);
@@ -1209,7 +709,6 @@ const CreateScheduleModal = ({
         [name]: value
       };
       
-      // Si cambia la disciplina, limpiar la categoría seleccionada
       if (name === 'discipline_id') {
         newData.category_id = '';
       }
@@ -1219,21 +718,23 @@ const CreateScheduleModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Crear Cronograma</h3>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Crear Nuevo Horario"
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
             </div>
-          )}
+          </div>
+        )}
 
-        <div className="grid grid-cols-2 gap-4">
-          {/* Campo Disciplina */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Disciplina *
@@ -1242,7 +743,7 @@ const CreateScheduleModal = ({
               name="discipline_id"
               value={formData.discipline_id}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             >
               <option value="">Seleccionar disciplina</option>
@@ -1254,7 +755,6 @@ const CreateScheduleModal = ({
             </select>
           </div>
 
-          {/* Campo Categoría (dependiente de la disciplina) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Categoría *
@@ -1263,15 +763,15 @@ const CreateScheduleModal = ({
               name="category_id"
               value={formData.category_id}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
               disabled={!formData.discipline_id || filteredCategories.length === 0}
             >
               <option value="">
                 {!formData.discipline_id 
-                  ? 'Primero seleccione una disciplina' 
+                  ? 'Seleccione disciplina primero' 
                   : filteredCategories.length === 0 
-                    ? 'No hay categorías para esta disciplina'
+                    ? 'No hay categorías'
                     : 'Seleccionar categoría'
                 }
               </option>
@@ -1281,64 +781,55 @@ const CreateScheduleModal = ({
                 </option>
               ))}
             </select>
-            {formData.discipline_id && filteredCategories.length === 0 && (
-              <p className="text-yellow-600 text-sm mt-1">
-                Esta disciplina no tiene categorías configuradas
-              </p>
-            )}
           </div>
         </div>
-          {/* Campo profe */}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Profesor *
+          </label>
+          <select
+            name="teacher_id"
+            value={formData.teacher_id}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          >
+            <option value="">Seleccionar profesor</option>
+            {teachers.map((teacher) => (
+              <option key={teacher.id} value={teacher.id}>
+                {teacher.first_name} {teacher.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Profesor/a *
+              Día de la Semana *
             </label>
             <select
-              name="teacher_id"
-              value={formData.teacher_id}
+              name="day_of_week"
+              value={formData.day_of_week}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             >
-              <option value="">Seleccionar profesor/a</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.first_name} {teacher.last_name}
-                </option>
-              ))}
+              <option value="">Seleccionar día</option>
+              <option value="1">Lunes</option>
+              <option value="2">Martes</option>
+              <option value="3">Miércoles</option>
+              <option value="4">Jueves</option>
+              <option value="5">Viernes</option>
+              <option value="6">Sábado</option>
+              <option value="0">Domingo</option>
             </select>
           </div>
 
-        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Inicio *
-            </label>
-            <input
-              type="time"
-              name="start_time"
-              value={formData.start_time}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fin *
-            </label>
-            <input
-              type="time"
-              name="end_time"
-              value={formData.end_time}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Capacidad *
+              Capacidad Máxima *
             </label>
             <input
               type="number"
@@ -1346,48 +837,58 @@ const CreateScheduleModal = ({
               value={formData.max_capacity}
               onChange={handleChange}
               min="1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              max="100"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Día de la semana *
+              Hora de Inicio *
             </label>
-            <select
-              name="day_of_week"
-              value={formData.day_of_week}
+            <input
+              type="time"
+              name="start_time"
+              value={formData.start_time}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
-             >
-              <option value="">Seleccionar día</option>
-              <option value="0">Domingo</option>
-              <option value="1">Lunes</option>
-              <option value="2">Martes</option>
-              <option value="3">Miércoles</option>
-              <option value="4">Jueves</option>
-              <option value="5">Viernes</option>
-              <option value="6">Sábado</option>
-            </select>
+            />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Área
+              Hora de Fin *
+            </label>
+            <input
+              type="time"
+              name="end_time"
+              value={formData.end_time}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Área/Sala
             </label>
             <input
               type="text"
               name="room"
               value={formData.room}
               onChange={handleChange}
-              placeholder="Ej: Sala A, Gimnasio"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Ej: Gimnasio principal, Sala A"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
 
-        </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Estado
@@ -1396,26 +897,41 @@ const CreateScheduleModal = ({
               name="status"
               value={formData.status}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="active">Activo</option>
               <option value="inactive">Inactivo</option>
             </select>
           </div>
-        </form>
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <Clock size={18} className="text-green-600 mt-0.5" />
+            <div>
+              <p className="text-sm text-green-700">
+                <strong>Importante:</strong> Este horario creará clases recurrentes semanales.
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Las clases se generarán automáticamente cada semana en el día y hora especificados.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {loading ? (
               <>
@@ -1423,84 +939,43 @@ const CreateScheduleModal = ({
                 <span>Creando...</span>
               </>
             ) : (
-              <span>Crear Cronograma</span>
+              <>
+                <Plus size={18} />
+                <span>Crear Horario</span>
+              </>
             )}
           </button>
         </div>
-        
-      </div>
-    </div>
+      </form>
+    </ResponsiveModal>
   );
 };
 
-// Componente EditScheduleModal ACTUALIZADO para manejar INT
-const EditScheduleModal = ({ 
-  schedule, 
-  onSave, 
-  onClose, 
-  teachers,
-  disciplines,
-  categories
-}) => {
+// Modal para editar horario
+const EditScheduleModal = ({ isOpen, onClose, schedule, onSave, teachers, categories }) => {
   const [formData, setFormData] = useState({
     teacher_id: schedule?.teacher_id || '',
-    day_of_week: schedule?.day_of_week?.toString() || '', // Convertir INT a string para el select
     category_id: schedule?.category_id || '',
     start_time: schedule?.start_time || '',
     end_time: schedule?.end_time || '',
-    max_capacity: schedule?.max_capacity || '',
+    max_capacity: schedule?.max_capacity || '20',
     room: schedule?.room || '',
+    day_of_week: schedule?.day_of_week?.toString() || '',
     status: schedule?.status || 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Obtener la disciplina del cronograma para preseleccionar
-  const scheduleDisciplineId = useMemo(() => {
-    if (!schedule || !schedule.discipline_id) return '';
-    return schedule.discipline_id.toString();
-  }, [schedule]);
 
-  // Filtrar categorías basadas en la disciplina del cronograma
-  const filteredCategories = useMemo(() => {
-    if (!scheduleDisciplineId) {
-      return categories;
-    }
-    return categories.filter(category => 
-      category.discipline_id === parseInt(scheduleDisciplineId)
-    );
-  }, [scheduleDisciplineId, categories]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-  
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.teacher_id || !formData.category_id || !formData.day_of_week || !formData.start_time || !formData.end_time) {
-      setError('Todos los campos obligatorios deben ser completados');
+    if (!formData.teacher_id || !formData.category_id || !formData.day_of_week || 
+        !formData.start_time || !formData.end_time || !formData.max_capacity) {
+      setError('Todos los campos marcados con * son obligatorios');
       setLoading(false);
       return;
-    }
-
-    // Validar que la hora de fin sea mayor que la de inicio
-    if (formData.start_time && formData.end_time) {
-      const [startHour, startMinute] = formData.start_time.split(':').map(Number);
-      const [endHour, endMinute] = formData.end_time.split(':').map(Number);
-      
-      if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-        setError('La hora de fin debe ser mayor que la hora de inicio');
-        setLoading(false);
-        return;
-      }
     }
 
     try {
@@ -1512,116 +987,108 @@ const EditScheduleModal = ({
     }
   };
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Actualizar Cronograma</h3>
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Editar Horario: ${schedule?.discipline_name}`}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Disciplina
+          </label>
+          <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+            {schedule?.discipline_name}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">La disciplina no se puede modificar</p>
         </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
 
-          {/* Información de disciplina (solo lectura) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Disciplina
-            </label>
-            <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700">
-              {schedule?.discipline_name || 'No especificada'}
-            </div>
-            <p className="text-xs text-gray-500 mt-1">
-              La disciplina no se puede modificar una vez creado el cronograma
-            </p>
-          </div>
-
-          {/* Campo Categoría */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Categoría *
-            </label>
-            <select
-              name="category_id"
-              value={formData.category_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-              disabled={filteredCategories.length === 0}
-            >
-              <option value="">
-                {filteredCategories.length === 0 
-                  ? 'No hay categorías disponibles'
-                  : 'Seleccionar categoría'
-                }
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Categoría *
+          </label>
+          <select
+            name="category_id"
+            value={formData.category_id}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          >
+            <option value="">Seleccionar categoría</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
               </option>
-              {filteredCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            {filteredCategories.length === 0 && (
-              <p className="text-yellow-600 text-sm mt-1">
-                No hay categorías configuradas para esta disciplina
-              </p>
-            )}
-          </div>
-          
-          {/* Campo profe */}
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Profesor *
+          </label>
+          <select
+            name="teacher_id"
+            value={formData.teacher_id}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          >
+            <option value="">Seleccionar profesor</option>
+            {teachers.map((teacher) => (
+              <option key={teacher.id} value={teacher.id}>
+                {teacher.first_name} {teacher.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Resto del formulario similar al CreateScheduleModal */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Profesor/a *
+              Día de la Semana *
             </label>
             <select
-              name="teacher_id"
-              value={formData.teacher_id}
+              name="day_of_week"
+              value={formData.day_of_week}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             >
-              <option value="">Seleccionar profesor/a</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>
-                  {teacher.first_name} {teacher.last_name}
-                </option>
-              ))}
+              <option value="">Seleccionar día</option>
+              <option value="1">Lunes</option>
+              <option value="2">Martes</option>
+              <option value="3">Miércoles</option>
+              <option value="4">Jueves</option>
+              <option value="5">Viernes</option>
+              <option value="6">Sábado</option>
+              <option value="0">Domingo</option>
             </select>
           </div>
 
-        <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Inicio *
-            </label>
-            <input
-              type="time"
-              name="start_time"
-              value={formData.start_time}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fin *
-            </label>
-            <input
-              type="time"
-              name="end_time"
-              value={formData.end_time}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Capacidad *
+              Capacidad Máxima *
             </label>
             <input
               type="number"
@@ -1629,48 +1096,57 @@ const EditScheduleModal = ({
               value={formData.max_capacity}
               onChange={handleChange}
               min="1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              max="100"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Día de la semana *
+              Hora de Inicio *
             </label>
-            <select
-              name="day_of_week"
-              value={formData.day_of_week}
+            <input
+              type="time"
+              name="start_time"
+              value={formData.start_time}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
-             >
-              <option value="">Seleccionar día</option>
-              <option value="0">Domingo</option>
-              <option value="1">Lunes</option>
-              <option value="2">Martes</option>
-              <option value="3">Miércoles</option>
-              <option value="4">Jueves</option>
-              <option value="5">Viernes</option>
-              <option value="6">Sábado</option>
-            </select>
+            />
           </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Área
+              Hora de Fin *
+            </label>
+            <input
+              type="time"
+              name="end_time"
+              value={formData.end_time}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Área/Sala
             </label>
             <input
               type="text"
               name="room"
               value={formData.room}
               onChange={handleChange}
-              placeholder="Ej: Sala A, Gimnasio"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           </div>
 
-        </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Estado
@@ -1679,26 +1155,27 @@ const EditScheduleModal = ({
               name="status"
               value={formData.status}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               <option value="active">Activo</option>
               <option value="inactive">Inactivo</option>
             </select>
           </div>
-        </form>
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {loading ? (
               <>
@@ -1706,13 +1183,125 @@ const EditScheduleModal = ({
                 <span>Actualizando...</span>
               </>
             ) : (
-              <span>Actualizar Cronograma</span>
+              <>
+                <Edit size={18} />
+                <span>Actualizar Horario</span>
+              </>
             )}
           </button>
         </div>
-        
+      </form>
+    </ResponsiveModal>
+  );
+};
+
+// Modal para ver detalles del horario
+const ViewScheduleModal = ({ isOpen, onClose, schedule, formatTime, getDayName }) => {
+  return (
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Detalles del Horario"
+      size="md"
+    >
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            {schedule?.discipline_name?.charAt(0).toUpperCase() || 'C'}
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">
+              {schedule?.discipline_name} - {schedule?.category_name}
+            </h3>
+            <p className="text-gray-600">{schedule?.teacher_name}</p>
+          </div>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            schedule?.status === 'active' 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {schedule?.status === 'active' ? 'Activo' : 'Inactivo'}
+          </span>
+        </div>
+
+        {/* Información */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <CalendarDays size={16} />
+              <span>Horario</span>
+            </h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Día:</span>
+                <span className="font-medium">{getDayName(schedule?.day_of_week)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Inicio:</span>
+                <span className="font-medium">{formatTime(schedule?.start_time)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Fin:</span>
+                <span className="font-medium">{formatTime(schedule?.end_time)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <Users size={16} />
+              <span>Capacidad</span>
+            </h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Máxima:</span>
+                <span className="font-medium">{schedule?.max_capacity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Inscriptos:</span>
+                <span className="font-medium">{schedule?.enrolled_member || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Disponibles:</span>
+                <span className="font-medium text-green-600">
+                  {(schedule?.max_capacity || 0) - (schedule?.enrolled_member || 0)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {schedule?.room && (
+            <div className="bg-blue-50 p-4 rounded-lg md:col-span-2">
+              <h4 className="font-medium text-blue-700 mb-2 flex items-center space-x-2">
+                <MapPin size={16} />
+                <span>Ubicación</span>
+              </h4>
+              <p className="text-blue-800">{schedule.room}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Información adicional */}
+        {schedule?.created_at && (
+          <div className="bg-green-50 p-4 rounded-lg">
+            <h4 className="font-medium text-green-700 mb-2">Información del Sistema</h4>
+            <p className="text-sm text-green-800">
+              Horario creado el {new Date(schedule.created_at).toLocaleDateString('es-ES')}
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
-    </div>
+    </ResponsiveModal>
   );
 };
 

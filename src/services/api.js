@@ -865,3 +865,90 @@ export const clubFeeTypeService = {
     });
   },
 };
+
+
+
+/////////////////////////////////////////////////////////////
+
+export const clubFeeService = {
+  // Obtener todas las categories
+  getAllFees: async () => {
+    const response = await authFetch('/club/fees');
+    return response.results || [];
+  },
+
+  // Obtener disciplina por club ID
+  getFeesByClubId: async (clubId) => {
+    const response = await authFetch(`/club/fees/club/${clubId}`);
+    return response.results || [];
+  },
+
+  // Obtener categories por disciplina ID
+  getFeesByMemberId: async (memberId) => {
+    const response = await authFetch(`/club/fees/discipline/${memberId}`);
+    return response.results || [];
+  },
+
+  // Obtener categories por ID
+  getFeeById: async (id) => {
+    return authFetch(`/club/fees/${id}`);
+  },
+
+  // Crear fee
+  createFeeType: async (feeData) => {
+    try {
+      const response = await authFetch('/club/fees', {
+        method: 'POST',
+        body: JSON.stringify(feeData),
+      });
+
+      return response;
+    } catch (error) {
+      // Mejorar el manejo de errores para mostrar el mensaje específico
+      console.error('Error en createFee:', error);
+      
+      // Si el error ya tiene un mensaje específico, lanzarlo tal cual
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      // Si es un error genérico, intentar obtener más detalles
+      throw new Error(error.message || 'Error al crear cuota');
+    }
+  },
+
+  updateFee: async (id, feeData) => {
+    try {
+      const response = await authFetch(`/club/fees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(feeData),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Error en updateFee:', error);
+      
+      // Preservar el mensaje específico de la API
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      throw new Error(error.message || 'Error al actualizar cuota');
+    }
+  },
+
+  // Actualizar categories
+  updateFee: async (id, feeData) => {
+    return authFetch(`/club/fees/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(feeData),
+    });
+  },
+
+  // Eliminar categories
+  deleteFee: async (id) => {
+    return authFetch(`/club/fees/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};

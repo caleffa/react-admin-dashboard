@@ -1,25 +1,43 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { clubCategoryService } from '../../services/api';
 import { useClubAuth } from '../../context/ClubAuthContext';
+import { 
+  Tag,
+  Plus,
+  RefreshCw,
+  Eye,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Users,
+  Award,
+  Calendar,
+  Hash,
+  AlertCircle,
+  BarChart3,
+  Tag as TagIcon
+} from 'lucide-react';
 
-const ClubCategoriesManagement = () => {
+// Importar los componentes responsive
+import ResponsiveModal from '../ClubDashboard/ResponsiveModal';
+import ResponsiveDataTable from '../ClubDashboard/ResponsiveDataTable';
+
+const ClubCategoriesManagement = ({ openModal, closeModal }) => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-
-  // Estados para DataTable
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('name');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [disciplines, setDisciplines] = useState([]);
-  const { user: currentCategory } = useClubAuth();
-  const [selectedDiscipline, setselectedDiscipline] = useState('');
+
+  const { user: currentUser } = useClubAuth();
 
   useEffect(() => {
     loadCategories();
@@ -31,73 +49,20 @@ const ClubCategoriesManagement = () => {
       setError('');
     
       // Cargar disciplinas
-      const disciplineData = await clubCategoryService.getDisciplinesByClubId(currentCategory.club_id);
-      const activeDisciplines = disciplineData.filter(discipline => discipline.status === 'active' );
+      const disciplineData = await clubCategoryService.getDisciplinesByClubId(currentUser.club_id);
+      const activeDisciplines = disciplineData.filter(discipline => discipline.status === 'active');
       setDisciplines(activeDisciplines);
 
       // Cargar categorías del mismo club
-      const categoriesData = await clubCategoryService.getCategoriesByClubId(currentCategory.club_id);
+      const categoriesData = await clubCategoryService.getCategoriesByClubId(currentUser.club_id);
       setCategories(categoriesData);
 
-
-    
     } catch (err) {
-      setError(err.message);
+      setError('Error al cargar las categorías: ' + err.message);
       console.error('Error loading categories:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Función para ordenar los datos
-  const sortedAndFilteredCategories = useMemo(() => {
-    let filtered = categories.filter(category => 
-      category.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      category.level?.toLowerCase().includes(searchTerm.toLowerCase()) 
-    );
-
-    // Ordenar
-    filtered.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Manejar valores nulos o undefined
-      if (aValue == null) aValue = '';
-      if (bValue == null) bValue = '';
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [categories, searchTerm, sortField, sortDirection]);
-
-  // Paginación
-  const paginatedCategories = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedAndFilteredCategories.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedAndFilteredCategories, currentPage, itemsPerPage]);
-
-  const totalPages = Math.ceil(sortedAndFilteredCategories.length / itemsPerPage);
-
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    setCurrentPage(1);
-  };
-
-  const getSortIcon = (field) => {
-    if (sortField !== field) {
-      return <span className="text-gray-400">↕</span>;
-    }
-    return sortDirection === 'asc' ? 
-      <span className="text-blue-500">↑</span> : 
-      <span className="text-blue-500">↓</span>;
   };
 
   const handleCreate = async (categoryData) => {
@@ -106,12 +71,12 @@ const ClubCategoriesManagement = () => {
       
       const categoryDataWithClub = {
         ...categoryData,
-        club_id: currentCategory.club_id
+        club_id: currentUser.club_id
       };
       
       await clubCategoryService.createCategory(categoryDataWithClub);
-      setSuccessMessage('Categoría creado exitosamente');
-      setShowCreateModal(false);
+      setSuccessMessage('Categoría creada exitosamente');
+      setIsCreateModalOpen(false);
       loadCategories();
       
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -122,14 +87,13 @@ const ClubCategoriesManagement = () => {
 
   const handleEdit = (category) => {
     setEditingCategory(category);
-    setShowEditModal(true);
+    setIsEditModalOpen(true);
   };
 
-  /*const handleDisciplineChange = (e) => {
-    const disciplineId = e.target.value;
-    setSelectedClub(disciplineId);
-    loadUsersByClub(disciplineId);
-  };*/
+  const handleView = (category) => {
+    setSelectedCategory(category);
+    setIsViewModalOpen(true);
+  };
 
   const handleUpdate = async (categoryData) => {
     try {
@@ -137,356 +101,384 @@ const ClubCategoriesManagement = () => {
       
       const categoryDataWithClub = {
         ...categoryData,
-        club_id: currentCategory.club_id
+        club_id: currentUser.club_id
       };
       
       await clubCategoryService.updateCategory(editingCategory.id, categoryDataWithClub);
-      setShowEditModal(false);
+      setIsEditModalOpen(false);
       setEditingCategory(null);
       setSuccessMessage('Categoría actualizada exitosamente');
       loadCategories();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError(err.message);
+      setError('Error al actualizar la categoría: ' + err.message);
       console.error('Error updating category:', err);
     }
   };
 
   const handleDelete = async (categoryId) => {
-    /*if (categoryId === currentCategory.id) {
-      setError('No puedes eliminarte a ti mismo');
-      return;
-    }*/
-
-    if (window.confirm('¿Estás seguro de que quieres eliminar esta categoría?')) {
-      try {
-        setError('');
-        await clubCategoryService.deleteCategory(categoryId);
-        setSuccessMessage('Categoría eliminada exitosamente');
-        loadCategories();
+    const categoryToDelete = categories.find(c => c.id === categoryId);
+    
+    // Usar el modal responsive para confirmación
+    openModal(
+      'Confirmar Eliminación',
+      <div className="space-y-4">
+        <div className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
+          <Trash2 className="text-red-500" size={24} />
+          <div>
+            <p className="font-semibold text-red-800">¿Estás seguro de eliminar esta categoría?</p>
+            <p className="text-sm text-red-600 mt-1">
+              Se eliminará permanentemente: <strong>{categoryToDelete?.name}</strong>
+            </p>
+            <p className="text-xs text-red-500 mt-2">
+              Los socios asociados a esta categoría quedarán sin categoría asignada
+            </p>
+          </div>
+        </div>
         
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (err) {
-        setError(err.message);
-        console.error('Error deleting category:', err);
-      }
-    }
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={closeModal}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setError('');
+                await clubCategoryService.deleteCategory(categoryId);
+                setSuccessMessage('Categoría eliminada exitosamente');
+                closeModal();
+                loadCategories();
+                
+                setTimeout(() => setSuccessMessage(''), 3000);
+              } catch (err) {
+                setError('Error al eliminar la categoría: ' + err.message);
+                closeModal();
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Eliminar Categoría
+          </button>
+        </div>
+      </div>,
+      'sm'
+    );
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Cargando categorías del club...</div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-lg text-gray-600">Cargando categorías del club...</p>
+        </div>
       </div>
     );
   }
 
+  const getLevelColor = (level) => {
+    switch(level) {
+      case 'beginner': return 'bg-blue-100 text-blue-800';
+      case 'intermediate': return 'bg-yellow-100 text-yellow-800';
+      case 'advanced': return 'bg-orange-100 text-orange-800';
+      case 'expert': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getLevelText = (level) => {
+    switch(level) {
+      case 'beginner': return 'Principiante';
+      case 'intermediate': return 'Intermedio';
+      case 'advanced': return 'Avanzado';
+      case 'expert': return 'Experto';
+      default: return level;
+    }
+  };
+
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Categorías del Club</h2>
-          <p className="text-gray-600">Total: {sortedAndFilteredCategories.length} categorías</p>
+          <h2 className="text-2xl font-bold text-gray-800">Categorías</h2>
+          <p className="text-gray-600 mt-1">Organiza las categorías por disciplina y nivel</p>
         </div>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Crear Categoría</span>
-          </button>
+        
+        <div className="flex flex-wrap gap-2">
+          <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-600">
+            Total: <span className="font-bold">{categories.length}</span> categorías
+          </div>
+          
           <button
             onClick={loadCategories}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
-            Actualizar
+            <RefreshCw size={18} />
+            <span>Actualizar</span>
+          </button>
+          
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus size={18} />
+            <span>Nueva</span>
           </button>
         </div>
       </div>
 
+      {/* Mensajes de éxito/error */}
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-          {successMessage}
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <CheckCircle size={20} />
+          <span>{successMessage}</span>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <XCircle size={20} />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Barra de búsqueda y controles */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="relative flex-1 max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-400">🔍</span>
+      {/* Resumen rápido */}
+      {categories.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Categorías</p>
+                <p className="text-2xl font-bold text-gray-800">{categories.length}</p>
+              </div>
+              <Tag className="text-green-500" size={24} />
             </div>
-            <input
-              type="text"
-              placeholder="Buscar por nombre..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
           </div>
           
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-400">📊</span>
-              <span className="text-sm text-gray-600">Mostrar:</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Disciplinas</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {[...new Set(categories.map(c => c.discipline_name))].length}
+                </p>
+              </div>
+              <Award className="text-blue-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Niveles</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {[...new Set(categories.map(c => c.level))].length}
+                </p>
+              </div>
+              <BarChart3 className="text-purple-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Activas</p>
+                <p className="text-2xl font-bold text-gray-800">
+                  {categories.filter(c => c.status === 'active').length}
+                </p>
+              </div>
+              <CheckCircle className="text-green-500" size={24} />
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {sortedAndFilteredCategories.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-600 mb-4">
-            {searchTerm ? 'No se encontraron categorías que coincidan con la búsqueda' : 'No se encontraron categorías en este club'}
-          </p>
+      {/* DataTable Responsive */}
+      {categories.length === 0 ? (
+        <div className="bg-white rounded-xl shadow p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <TagIcon size={32} className="text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay categorías registradas</h3>
+          <p className="text-gray-600 mb-6">Crea categorías para organizar a tus socios por disciplina y nivel</p>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-2"
           >
-            Crear Primer Categoría
+            <Plus size={18} />
+            <span>Crear Primera Categoría</span>
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {/*<th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('id')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>ID</span>
-                      {getSortIcon('id')}
-                    </div>
-                  </th>*/}
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Nombre</span>
-                      {getSortIcon('name')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('discipline_name')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Disciplina</span>
-                      {getSortIcon('discipline_name')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('min_age')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span >Edad mín</span>
-                      {getSortIcon('min_age')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('max_age')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span >Edad max</span>
-                      {getSortIcon('max_age')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('level')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span >Nivel</span>
-                      {getSortIcon('level')}
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedCategories.map((category) => (
-                  <tr key={category.id} className="hover:bg-gray-50">
-                    {/*<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {category.id}
-                    </td>*/}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
-                          {category.name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {category.name}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {category.discipline_name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {category.min_age}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {category.max_age}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {category.level}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        category.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {category.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => handleEdit(category)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Editar
-                      </button>
-                      
-                        <button
-                          onClick={() => handleDelete(category.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Eliminar
-                        </button>
-                      
-                      {/*{category.id === currentCategory.id && (
-                        <span className="text-gray-400 text-xs">(Tú)</span>
-                      )}*/}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginación */}
-          {totalPages > 1 && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-              <div className="flex-1 flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a{' '}
-                    <span className="font-medium">
-                      {Math.min(currentPage * itemsPerPage, sortedAndFilteredCategories.length)}
-                    </span> de{' '}
-                    <span className="font-medium">{sortedAndFilteredCategories.length}</span> resultados
-                  </p>
+        <ResponsiveDataTable
+          data={categories}
+          columns={[
+            { 
+              key: 'name', 
+              label: 'Categoría',
+              render: (value, item) => (
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                    {value?.charAt(0).toUpperCase() || 'C'}
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900">{value}</div>
+                    {item.description && (
+                      <div className="text-xs text-gray-500">{item.description}</div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Siguiente
-                  </button>
+              )
+            },
+            { 
+              key: 'discipline_name', 
+              label: 'Disciplina',
+              render: (value) => (
+                <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                  {value || 'Sin disciplina'}
+                </span>
+              )
+            },
+            { 
+              key: 'age_range', 
+              label: 'Rango de Edad',
+              render: (_, item) => (
+                <div className="flex items-center space-x-1">
+                  <Calendar size={12} className="text-gray-400" />
+                  <span className="text-sm">
+                    {item.min_age || '?'} - {item.max_age || '?'} años
+                  </span>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
+              )
+            },
+            { 
+              key: 'level', 
+              label: 'Nivel',
+              render: (value) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLevelColor(value)}`}>
+                  {getLevelText(value)}
+                </span>
+              )
+            },
+            { 
+              key: 'status', 
+              label: 'Estado',
+              render: (value) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  value === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {value === 'active' ? 'Activo' : 'Inactivo'}
+                </span>
+              )
+            }
+          ]}
+          itemsPerPage={10}
+          searchable={true}
+          downloadable={true}
+          actions={[
+            {
+              label: 'Ver',
+              icon: <Eye size={14} />,
+              onClick: (item) => handleView(item)
+            },
+            {
+              label: 'Editar',
+              icon: <Edit size={14} />,
+              onClick: (item) => handleEdit(item)
+            },
+            {
+              label: 'Eliminar',
+              icon: <Trash2 size={14} />,
+              variant: 'danger',
+              onClick: (item) => handleDelete(item.id)
+            }
+          ]}
+          onRowClick={(item) => handleView(item)}
+        />
       )}
 
-      {/* Modales (se mantienen igual) */}
-      {showCreateModal && (
-        <CreateCategoryModal
-          onSave={handleCreate}
-          onClose={() => setShowCreateModal(false)}
+      {/* Modal para crear categoría */}
+      <CreateCategoryModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleCreate}
+        disciplines={disciplines}
+      />
+
+      {/* Modal para editar categoría */}
+      {editingCategory && (
+        <EditCategoryModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingCategory(null);
+          }}
+          category={editingCategory}
+          onSave={handleUpdate}
           disciplines={disciplines}
         />
       )}
 
-        {showEditModal && (
-        <EditCategoryModal
-            category={editingCategory}
-            onSave={handleUpdate}
-            onClose={() => {
-            setShowEditModal(false);
-            setEditingCategory(null);
-            }}
-            disciplines={disciplines} // <-- Añadir esta línea
+      {/* Modal para ver detalles de la categoría */}
+      {selectedCategory && (
+        <ViewCategoryModal
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setSelectedCategory(null);
+          }}
+          category={selectedCategory}
         />
-        )}
+      )}
     </div>
   );
 };
 
-// Los componentes CreateCategoryModal y EditCategoryModal se mantienen exactamente igual que antes
-const CreateCategoryModal = ({ onSave, onClose, disciplines }) => { // <-- Añadir disciplines como prop
+// Modal para crear categoría
+const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
   const [formData, setFormData] = useState({
-    description: '',
     name: '',
+    description: '',
+    discipline_id: '',
     min_age: '',
     max_age: '',
-    level: '',
-    status: 'active',
-    discipline_id: '' // <-- Añadir discipline_id al formData
+    level: 'beginner',
+    status: 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.name) {
-      setError('Todos los campos obligatorios deben ser completados');
+    // Validación
+    if (!formData.name || !formData.discipline_id) {
+      setError('Los campos marcados con * son obligatorios');
       setLoading(false);
       return;
     }
 
     try {
       await onSave(formData);
+      // Reset form on success
+      setFormData({
+        name: '',
+        description: '',
+        discipline_id: '',
+        min_age: '',
+        max_age: '',
+        level: 'beginner',
+        status: 'active'
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -503,146 +495,172 @@ const CreateCategoryModal = ({ onSave, onClose, disciplines }) => { // <-- Añad
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Crear Categoría del Club</h3>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Crear Nueva Categoría"
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
             </div>
-          )}
+          </div>
+        )}
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Nombre de la Categoría *
+          </label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+            placeholder="Ej: Infantil, Juvenil, Adultos"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Descripción
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            rows="2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Descripción de la categoría"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Disciplina *
+          </label>
+          <select
+            name="discipline_id"
+            value={formData.discipline_id}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          >
+            <option value="">Seleccionar disciplina</option>
+            {disciplines.map((discipline) => (
+              <option key={discipline.id} value={discipline.id}>
+                {discipline.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre *
+              Edad Mínima
             </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-                
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descripción 
-            </label>
-            <input
-              type="text"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Disciplina *
-            </label>
-            <select
-              name="discipline_id"
-              value={formData.discipline_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            >
-              <option value="">Seleccionar disciplina</option>
-              {disciplines.map((discipline) => (
-                <option key={discipline.id} value={discipline.id}>
-                  {discipline.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Edad mínima
-              </label>
+            <div className="relative">
               <input
                 type="number"
                 name="min_age"
                 value={formData.min_age}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                min="0"
+                max="100"
+                placeholder="0"
               />
+              <span className="absolute right-3 top-2 text-gray-500">años</span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Edad máxima
-              </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Edad Máxima
+            </label>
+            <div className="relative">
               <input
                 type="number"
                 name="max_age"
                 value={formData.max_age}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                min="0"
+                max="100"
+                placeholder="100"
               />
+              <span className="absolute right-3 top-2 text-gray-500">años</span>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nivel
+            </label>
+            <select
+              name="level"
+              value={formData.level}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="beginner">Principiante</option>
+              <option value="intermediate">Intermedio</option>
+              <option value="advanced">Avanzado</option>
+              <option value="expert">Experto</option>
+            </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nivel
-              </label>
-              <select
-                name="level"
-                value={formData.level}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="beginner">Principiante</option>
-                <option value="intermediate">Intermedio</option>
-                <option value="advanced">Avanzado</option>
-                <option value="expert">Experto</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Estado
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+            </select>
           </div>
+        </div>
 
-          <div className="bg-green-50 p-3 rounded-lg">
-            <p className="text-xs text-green-700">
-              <strong>Nota:</strong> La categoría se creará automáticamente en este club. 
-            </p>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <Award size={18} className="text-green-600 mt-0.5" />
+            <div>
+              <p className="text-sm text-green-700">
+                <strong>Consejo:</strong> Las categorías ayudan a organizar a los socios por edades y niveles.
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Puedes crear categorías específicas para cada disciplina del club.
+              </p>
+            </div>
           </div>
-        </form>
-        
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {loading ? (
               <>
@@ -650,35 +668,40 @@ const CreateCategoryModal = ({ onSave, onClose, disciplines }) => { // <-- Añad
                 <span>Creando...</span>
               </>
             ) : (
-              <span>Crear Categoría</span>
+              <>
+                <Plus size={18} />
+                <span>Crear Categoría</span>
+              </>
             )}
           </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </ResponsiveModal>
   );
 };
 
-const EditCategoryModal = ({ category, onSave, onClose, disciplines }) => { // <-- Añadir disciplines como prop
+// Modal para editar categoría
+const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) => {
   const [formData, setFormData] = useState({
-    description: category?.description || '',
     name: category?.name || '',
+    description: category?.description || '',
+    discipline_id: category?.discipline_id || '',
     min_age: category?.min_age || '',
     max_age: category?.max_age || '',
     level: category?.level || 'beginner',
-    status: category?.status || 'active',
-    discipline_id: category?.discipline_id || '' // <-- Añadir discipline_id
+    status: category?.status || 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.name) {
-      setError('Todos los campos obligatorios deben ser completados');
+    // Validación
+    if (!formData.name || !formData.discipline_id) {
+      setError('Los campos marcados con * son obligatorios');
       setLoading(false);
       return;
     }
@@ -701,139 +724,154 @@ const EditCategoryModal = ({ category, onSave, onClose, disciplines }) => { // <
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Editar Categoría del Club</h3>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Editar Categoría: ${category?.name}`}
+      size="lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
             </div>
-          )}
+          </div>
+        )}
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Nombre de la Categoría *
+          </label>
+          <input
+            type="text"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Descripción
+          </label>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            rows="2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Disciplina *
+          </label>
+          <select
+            name="discipline_id"
+            value={formData.discipline_id}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          >
+            <option value="">Seleccionar disciplina</option>
+            {disciplines.map((discipline) => (
+              <option key={discipline.id} value={discipline.id}>
+                {discipline.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nombre *
+              Edad Mínima
             </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-            />
-          </div>
-                
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Descripción 
-            </label>
-            <input
-              type="text"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Disciplina
-            </label>
-            <select
-              name="discipline_id"
-              value={formData.discipline_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-            >
-              <option value="">Seleccionar disciplina</option>
-              {disciplines.map((discipline) => (
-                <option key={discipline.id} value={discipline.id}>
-                  {discipline.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Edad mínima
-              </label>
+            <div className="relative">
               <input
                 type="number"
                 name="min_age"
                 value={formData.min_age}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                min="0"
+                max="100"
               />
+              <span className="absolute right-3 top-2 text-gray-500">años</span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Edad máxima
-              </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Edad Máxima
+            </label>
+            <div className="relative">
               <input
                 type="number"
                 name="max_age"
                 value={formData.max_age}
                 onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                min="0"
+                max="100"
               />
+              <span className="absolute right-3 top-2 text-gray-500">años</span>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nivel
+            </label>
+            <select
+              name="level"
+              value={formData.level}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="beginner">Principiante</option>
+              <option value="intermediate">Intermedio</option>
+              <option value="advanced">Avanzado</option>
+              <option value="expert">Experto</option>
+            </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nivel
-              </label>
-              <select
-                name="level"
-                value={formData.level}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="beginner">Principiante</option>
-                <option value="intermediate">Intermedio</option>
-                <option value="advanced">Avanzado</option>
-                <option value="expert">Experto</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Estado
+            </label>
+            <select
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="active">Activo</option>
+              <option value="inactive">Inactivo</option>
+            </select>
           </div>
-        </form>
-       
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {loading ? (
               <>
@@ -841,12 +879,127 @@ const EditCategoryModal = ({ category, onSave, onClose, disciplines }) => { // <
                 <span>Actualizando...</span>
               </>
             ) : (
-              <span>Actualizar Categoría</span>
+              <>
+                <Edit size={18} />
+                <span>Actualizar Categoría</span>
+              </>
             )}
           </button>
         </div>
+      </form>
+    </ResponsiveModal>
+  );
+};
+
+// Modal para ver detalles de la categoría
+const ViewCategoryModal = ({ isOpen, onClose, category }) => {
+  const getLevelColor = (level) => {
+    switch(level) {
+      case 'beginner': return 'bg-blue-100 text-blue-800';
+      case 'intermediate': return 'bg-yellow-100 text-yellow-800';
+      case 'advanced': return 'bg-orange-100 text-orange-800';
+      case 'expert': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getLevelText = (level) => {
+    switch(level) {
+      case 'beginner': return 'Principiante';
+      case 'intermediate': return 'Intermedio';
+      case 'advanced': return 'Avanzado';
+      case 'expert': return 'Experto';
+      default: return level;
+    }
+  };
+
+  return (
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Detalles de la Categoría"
+      size="md"
+    >
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            {category?.name?.charAt(0).toUpperCase() || 'C'}
+          </div>
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">{category?.name}</h3>
+            {category?.description && (
+              <p className="text-gray-600 mt-1">{category.description}</p>
+            )}
+          </div>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            category?.status === 'active' 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {category?.status === 'active' ? 'Activo' : 'Inactivo'}
+          </span>
+        </div>
+
+        {/* Información */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <Award size={16} />
+              <span>Disciplina</span>
+            </h4>
+            <p className="text-gray-900 font-medium">{category?.discipline_name}</p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <BarChart3 size={16} />
+              <span>Nivel</span>
+            </h4>
+            <span className={`px-2 py-1 rounded-full text-sm font-medium ${getLevelColor(category?.level)}`}>
+              {getLevelText(category?.level)}
+            </span>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <Calendar size={16} />
+              <span>Rango de Edad</span>
+            </h4>
+            <p className="text-gray-900 font-medium">
+              {category?.min_age || '?'} - {category?.max_age || '?'} años
+            </p>
+          </div>
+
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <Hash size={16} />
+              <span>ID</span>
+            </h4>
+            <p className="text-gray-900 font-medium">#{category?.id}</p>
+          </div>
+        </div>
+
+        {/* Información adicional */}
+        {category?.created_at && (
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <h4 className="font-medium text-blue-700 mb-2">Información del Sistema</h4>
+            <p className="text-sm text-blue-800">
+              Categoría creada el {new Date(category.created_at).toLocaleDateString('es-ES')}
+            </p>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
-    </div>
+    </ResponsiveModal>
   );
 };
 

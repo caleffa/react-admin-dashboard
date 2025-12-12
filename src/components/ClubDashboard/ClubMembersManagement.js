@@ -1,22 +1,41 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { clubMemberService } from '../../services/api';
 import { useClubAuth } from '../../context/ClubAuthContext';
+import { 
+  UserPlus, 
+  RefreshCw,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  Heart,
+  Shield,
+  CheckCircle,
+  XCircle,
+  Eye,
+  Edit,
+  Trash2,
+  Search,
+  Filter,
+  UserCheck,
+  AlertCircle
+} from 'lucide-react';
 
-const ClubMembersManagement = () => {
+// Importar los componentes responsive
+import ResponsiveModal from '../ClubDashboard/ResponsiveModal';
+import ResponsiveDataTable from '../ClubDashboard/ResponsiveDataTable';
+
+const ClubMembersManagement = ({ openModal, closeModal }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [editingMember, setEditingMember] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  
-  // Estados para DataTable
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState('first_name');
-  const [sortDirection, setSortDirection] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   const { user: currentMember } = useClubAuth();
 
@@ -28,77 +47,17 @@ const ClubMembersManagement = () => {
     try {
       setLoading(true);
       setError('');
-    
+      
       // Cargar socios del mismo club
       const membersData = await clubMemberService.getMembersByClubId(currentMember.club_id);
       setMembers(membersData);
-    
+
     } catch (err) {
-      setError(err.message);
+      setError('Error al cargar los socios: ' + err.message);
       console.error('Error loading members:', err);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Función para ordenar los datos
-  const sortedAndFilteredMembers = useMemo(() => {
-    let filtered = members.filter(member => 
-      member.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.document_number?.includes(searchTerm) ||
-      member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.gender?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    // Ordenar
-    filtered.sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Manejar valores nulos o undefined
-      if (aValue == null) aValue = '';
-      if (bValue == null) bValue = '';
-      
-      // Ordenamiento especial para nombres completos
-      if (sortField === 'full_name') {
-        aValue = `${a.first_name} ${a.last_name}`.toLowerCase();
-        bValue = `${b.first_name} ${b.last_name}`.toLowerCase();
-      }
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return filtered;
-  }, [members, searchTerm, sortField, sortDirection]);
-
-  // Paginación
-  const paginatedMembers = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedAndFilteredMembers.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedAndFilteredMembers, currentPage, itemsPerPage]);
-
-  const totalPages = Math.ceil(sortedAndFilteredMembers.length / itemsPerPage);
-
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    setCurrentPage(1);
-  };
-
-  const getSortIcon = (field) => {
-    if (sortField !== field) {
-      return <span className="text-gray-400">↕</span>;
-    }
-    return sortDirection === 'asc' ? 
-      <span className="text-blue-500">↑</span> : 
-      <span className="text-blue-500">↓</span>;
   };
 
   const handleCreate = async (memberData) => {
@@ -112,7 +71,7 @@ const ClubMembersManagement = () => {
       
       await clubMemberService.createMember(memberDataWithClub);
       setSuccessMessage('Socio creado exitosamente');
-      setShowCreateModal(false);
+      setIsCreateModalOpen(false);
       loadMembers();
       
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -123,7 +82,12 @@ const ClubMembersManagement = () => {
 
   const handleEdit = (member) => {
     setEditingMember(member);
-    setShowEditModal(true);
+    setIsEditModalOpen(true);
+  };
+
+  const handleView = (member) => {
+    setSelectedMember(member);
+    setIsViewModalOpen(true);
   };
 
   const handleUpdate = async (memberData) => {
@@ -136,7 +100,7 @@ const ClubMembersManagement = () => {
       };
       
       await clubMemberService.updateMember(editingMember.id, memberDataWithClub);
-      setShowEditModal(false);
+      setIsEditModalOpen(false);
       setEditingMember(null);
       setSuccessMessage('Socio actualizado exitosamente');
       loadMembers();
@@ -149,332 +113,307 @@ const ClubMembersManagement = () => {
   };
 
   const handleDelete = async (memberId) => {
+    // Prevenir que el usuario actual se elimine a sí mismo
     if (memberId === currentMember.id) {
       setError('No puedes eliminarte a ti mismo');
       return;
     }
 
-    if (window.confirm('¿Estás seguro de que quieres eliminar este socio?')) {
-      try {
-        setError('');
-        await clubMemberService.deleteMember(memberId);
-        setSuccessMessage('Socio eliminado exitosamente');
-        loadMembers();
+    const memberToDelete = members.find(m => m.id === memberId);
+    
+    // Usar el modal responsive para confirmación
+    openModal(
+      'Confirmar Eliminación',
+      <div className="space-y-4">
+        <div className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
+          <Trash2 className="text-red-500" size={24} />
+          <div>
+            <p className="font-semibold text-red-800">¿Estás seguro de eliminar este socio?</p>
+            <p className="text-sm text-red-600 mt-1">
+              Se eliminará permanentemente: <strong>{memberToDelete?.first_name} {memberToDelete?.last_name}</strong>
+            </p>
+            <p className="text-xs text-red-500 mt-2">
+              Esta acción no se puede deshacer
+            </p>
+          </div>
+        </div>
         
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (err) {
-        setError('Error al eliminar el socio: ' + err.message);
-        console.error('Error deleting member:', err);
-      }
-    }
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={closeModal}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                setError('');
+                await clubMemberService.deleteMember(memberId);
+                setSuccessMessage('Socio eliminado exitosamente');
+                closeModal();
+                loadMembers();
+                
+                setTimeout(() => setSuccessMessage(''), 3000);
+              } catch (err) {
+                setError('Error al eliminar el socio: ' + err.message);
+                closeModal();
+              }
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Eliminar Socio
+          </button>
+        </div>
+      </div>,
+      'sm'
+    );
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Cargando socios del club...</div>
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-lg text-gray-600">Cargando socios del club...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Socios del Club</h2>
-          <p className="text-gray-600">Total: {sortedAndFilteredMembers.length} socios</p>
+          <h2 className="text-2xl font-bold text-gray-800">Socios</h2>
+          <p className="text-gray-600 mt-1">Gestiona los socios de {currentMember.club_name}</p>
         </div>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>Crear Socio</span>
-          </button>
+        
+        <div className="flex flex-wrap gap-2">
+          <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-600">
+            Total: <span className="font-bold">{members.length}</span> socios
+          </div>
+          
           <button
             onClick={loadMembers}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
-            Actualizar
+            <RefreshCw size={18} />
+            <span>Actualizar</span>
+          </button>
+          
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <UserPlus size={18} />
+            <span>Nuevo</span>
           </button>
         </div>
       </div>
 
+      {/* Mensajes de éxito/error */}
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
-          {successMessage}
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <CheckCircle size={20} />
+          <span>{successMessage}</span>
         </div>
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">
+          <XCircle size={20} />
+          <span>{error}</span>
         </div>
       )}
 
-      {/* Barra de búsqueda y controles */}
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-          <div className="relative flex-1 max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-400">🔍</span>
-            </div>
-            <input
-              type="text"
-              placeholder="Buscar por nombre, documento, email..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            />
+      {/* DataTable Responsive */}
+      {members.length === 0 ? (
+        <div className="bg-white rounded-xl shadow p-8 text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <User size={32} className="text-gray-400" />
           </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-400">📊</span>
-              <span className="text-sm text-gray-600">Mostrar:</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {sortedAndFilteredMembers.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-600 mb-4">
-            {searchTerm ? 'No se encontraron socios que coincidan con la búsqueda' : 'No se encontraron socios en este club'}
-          </p>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay socios registrados</h3>
+          <p className="text-gray-600 mb-6">Comienza agregando el primer socio a tu club</p>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors"
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-2"
           >
-            Crear Primer Socio
+            <UserPlus size={18} />
+            <span>Crear Primer Socio</span>
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {/*<th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('id')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>ID</span>
-                      {getSortIcon('id')}
+        <ResponsiveDataTable
+          data={members}
+          columns={[
+            { 
+              key: 'name', 
+              label: 'Nombre Completo',
+              render: (_, item) => (
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                    {item.first_name?.charAt(0).toUpperCase() || 'U'}
+                    {item.last_name?.charAt(0).toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <div className="font-medium text-gray-900">
+                      {item.first_name} {item.last_name}
                     </div>
-                  </th>*/}
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('full_name')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Nombre Completo</span>
-                      {getSortIcon('full_name')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('document_number')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Documento</span>
-                      {getSortIcon('document_number')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('gender')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Sexo</span>
-                      {getSortIcon('gender')}
-                    </div>
-                  </th>
-                  <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                    onClick={() => handleSort('email')}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Email</span>
-                      {getSortIcon('email')}
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Estado
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {paginatedMembers.map((member) => (
-                  <tr key={member.id} className="hover:bg-gray-50">
-                    {/*<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {member.id}
-                    </td>*/}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
-                          {member.first_name?.charAt(0).toUpperCase() || 'U'}
-                          {member.last_name?.charAt(0).toUpperCase() || 'U'}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {member.first_name} {member.last_name}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {member.document_number}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        member.gender === 'female' ? 'bg-red-100 text-red-800' : 
-                        member.gender === 'male'   ? 'bg-blue-100 text-blue-800'  : 
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {member.gender === 'male' ? 'Masculino' : member.gender === 'female' ? 'Femenino' : 'Otro'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {member.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        member.status === 'active' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {member.status === 'active' ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => handleEdit(member)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Editar
-                      </button>
-                      {member.id !== currentMember.id && (
-                        <button
-                          onClick={() => handleDelete(member.id)}
-                          className="text-red-600 hover:text-red-900"
-                        >
-                          Eliminar
-                        </button>
-                      )}
-                      {member.id === currentMember.id && (
-                        <span className="text-gray-400 text-xs">(Tú)</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Paginación */}
-          {totalPages > 1 && (
-            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-              <div className="flex-1 flex justify-between items-center">
-                <div>
-                  <p className="text-sm text-gray-700">
-                    Mostrando <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> a{' '}
-                    <span className="font-medium">
-                      {Math.min(currentPage * itemsPerPage, sortedAndFilteredMembers.length)}
-                    </span> de{' '}
-                    <span className="font-medium">{sortedAndFilteredMembers.length}</span> resultados
-                  </p>
+                    {item.email && (
+                      <div className="text-xs text-gray-500">{item.email}</div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Anterior
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Modales (se mantienen igual) */}
-      {showCreateModal && (
-        <CreateMemberModal
-          onSave={handleCreate}
-          onClose={() => setShowCreateModal(false)}
+              )
+            },
+            { 
+              key: 'document_number', 
+              label: 'Documento',
+              render: (value) => value || 'No especificado'
+            },
+            { 
+              key: 'gender', 
+              label: 'Sexo',
+              render: (value) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  value === 'female' ? 'bg-pink-100 text-pink-800' : 
+                  value === 'male'   ? 'bg-blue-100 text-blue-800'  : 
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {value === 'male' ? 'Masculino' : value === 'female' ? 'Femenino' : 'Otro'}
+                </span>
+              )
+            },
+            { 
+              key: 'phone', 
+              label: 'Teléfono',
+              render: (value) => value || 'No especificado'
+            },
+            { 
+              key: 'status', 
+              label: 'Estado',
+              render: (value) => (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  value === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {value === 'active' ? 'Activo' : 'Inactivo'}
+                </span>
+              )
+            }
+          ]}
+          itemsPerPage={10}
+          searchable={true}
+          downloadable={true}
+          actions={[
+            {
+              label: 'Ver',
+              icon: <Eye size={14} />,
+              onClick: (item) => handleView(item)
+            },
+            {
+              label: 'Editar',
+              icon: <Edit size={14} />,
+              onClick: (item) => handleEdit(item)
+            },
+            {
+              label: 'Eliminar',
+              icon: <Trash2 size={14} />,
+              variant: 'danger',
+              onClick: (item) => handleDelete(item.id)
+            }
+          ]}
+          onRowClick={(item) => handleView(item)}
         />
       )}
 
-      {showEditModal && (
+      {/* Modal para crear socio */}
+      <CreateMemberModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSave={handleCreate}
+      />
+
+      {/* Modal para editar socio */}
+      {editingMember && (
         <EditMemberModal
-          member={editingMember}
-          onSave={handleUpdate}
+          isOpen={isEditModalOpen}
           onClose={() => {
-            setShowEditModal(false);
+            setIsEditModalOpen(false);
             setEditingMember(null);
           }}
+          member={editingMember}
+          onSave={handleUpdate}
+        />
+      )}
+
+      {/* Modal para ver detalles del socio */}
+      {selectedMember && (
+        <ViewMemberModal
+          isOpen={isViewModalOpen}
+          onClose={() => {
+            setIsViewModalOpen(false);
+            setSelectedMember(null);
+          }}
+          member={selectedMember}
+          currentMemberId={currentMember.id}
         />
       )}
     </div>
   );
 };
 
-// Los componentes CreateMemberModal y EditMemberModal se mantienen exactamente igual que antes
-const CreateMemberModal = ({ onSave, onClose }) => {
+// Modal para crear socio (usando ResponsiveModal)
+const CreateMemberModal = ({ isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     document_number: '',
     email: '',
-    password: '',
     first_name: '',
     last_name: '',
     gender: 'other',
-    status: 'active'
+    status: 'active',
+    phone: '',
+    birth_date: '',
+    address: '',
+    medical_conditions: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.document_number || !formData.email || !formData.gender || !formData.first_name || !formData.last_name) {
-      setError('Todos los campos obligatorios deben ser completados');
+    // Validación básica
+    if (!formData.first_name || !formData.last_name || !formData.document_number || !formData.email) {
+      setError('Los campos marcados con * son obligatorios');
       setLoading(false);
       return;
     }
 
     try {
       await onSave(formData);
+      // Reset form on success
+      setFormData({
+        document_number: '',
+        email: '',
+        first_name: '',
+        last_name: '',
+        gender: 'other',
+        status: 'active',
+        phone: '',
+        birth_date: '',
+        address: '',
+        medical_conditions: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: ''
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -491,200 +430,227 @@ const CreateMemberModal = ({ onSave, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Crear Socio del Club</h3>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre *
-              </label>
-              <input
-                type="text"
-                name="first_name"
-                value={formData.first_name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Apellido *
-              </label>
-              <input
-                type="text"
-                name="last_name"
-                value={formData.last_name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Crear Socio"
+      size="xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
             </div>
           </div>
-        <div className="grid grid-cols-4 gap-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                Documento *
-                </label>
-                <input
-                type="text"
-                name="document_number"
-                value={formData.document_number}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-                />
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono *
-                </label>
-                <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-                />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha nacimiento *
-              </label>
-              <input
-                type="date"
-                name="birth_date"
-                value={formData.birth_date ? formData.birth_date.split('T')[0] : ''}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sexo 
-            </label>
-            <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option value="">Seleccionar género</option>
-                <option value="male">Masculino</option>
-                <option value="female">Femenino</option>
-                <option value="other">Otro, no indica</option>
-            </select>
-          </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email *
+              Nombre *
             </label>
             <input
-              type="email"
-              name="email"
-              value={formData.email}
+              type="text"
+              name="first_name"
+              value={formData.first_name}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Apellido *
+            </label>
+            <input
+              type="text"
+              name="last_name"
+              value={formData.last_name}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Documento *
+            </label>
+            <input
+              type="text"
+              name="document_number"
+              value={formData.document_number}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Ej: +54 9 11 1234-5678"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fecha de Nacimiento
+            </label>
+            <input
+              type="date"
+              name="birth_date"
+              value={formData.birth_date}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sexo
+            </label>
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="male">Masculino</option>
+              <option value="female">Femenino</option>
+              <option value="other">Otro / No indica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Email *
+          </label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Domicilio
+          </label>
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Calle, número, ciudad, provincia"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Condiciones Médicas
+          </label>
+          <textarea
+            name="medical_conditions"
+            value={formData.medical_conditions}
+            onChange={handleChange}
+            rows="2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Alergias, enfermedades crónicas, etc."
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Contacto de Emergencia
+            </label>
+            <input
+              type="text"
+              name="emergency_contact_name"
+              value={formData.emergency_contact_name}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Nombre completo"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono de Emergencia
+            </label>
+            <input
+              type="tel"
+              name="emergency_contact_phone"
+              value={formData.emergency_contact_phone}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Teléfono del contacto"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Estado
+          </label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <Shield size={18} className="text-green-600 mt-0.5" />
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Domicilio *
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Condiciones médicas
-              </label>
-              <input
-                type="text"
-                name="medical_conditions"
-                value={formData.medical_conditions}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contacto emergencia
-              </label>
-              <input
-                type="text"
-                name="emergency_contact_name"
-                value={formData.emergency_contact_name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tel emergencia
-              </label>
-              <input
-                type="text"
-                name="emergency_contact_phone"
-                value={formData.emergency_contact_phone}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
+              <p className="text-sm text-green-700">
+                <strong>Importante:</strong> Los datos marcados con * son obligatorios.
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                Los datos de contacto de emergencia son cruciales para la seguridad de los socios.
+              </p>
             </div>
           </div>
-        </form>
-        
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {loading ? (
               <>
@@ -692,40 +658,45 @@ const CreateMemberModal = ({ onSave, onClose }) => {
                 <span>Creando...</span>
               </>
             ) : (
-              <span>Crear Socio</span>
+              <>
+                <UserPlus size={18} />
+                <span>Crear Socio</span>
+              </>
             )}
           </button>
         </div>
-      </div>
-    </div>
+      </form>
+    </ResponsiveModal>
   );
 };
 
-const EditMemberModal = ({ member, onSave, onClose }) => {
+// Modal para editar socio (usando ResponsiveModal)
+const EditMemberModal = ({ isOpen, onClose, member, onSave }) => {
   const [formData, setFormData] = useState({
-    document_number: member.document_number || '',
-    email: member.email || '',
-    gender: member.gender || 'other',
-    first_name: member.first_name || '',
-    last_name: member.last_name || '',
-    address: member.address || '',
-    status: member.status || 'active',
-    phone: member.phone || '',
-    birth_date: member.birth_date || '',
-    emergency_contact_name: member.emergency_contact_name || '',
-    emergency_contact_phone: member.emergency_contact_phone || '',
-    medical_conditions: member.medical_conditions || ''
+    document_number: member?.document_number || '',
+    email: member?.email || '',
+    first_name: member?.first_name || '',
+    last_name: member?.last_name || '',
+    gender: member?.gender || 'other',
+    status: member?.status || 'active',
+    phone: member?.phone || '',
+    birth_date: member?.birth_date ? member.birth_date.split('T')[0] : '',
+    address: member?.address || '',
+    medical_conditions: member?.medical_conditions || '',
+    emergency_contact_name: member?.emergency_contact_name || '',
+    emergency_contact_phone: member?.emergency_contact_phone || ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.document_number || !formData.email || !formData.first_name || !formData.last_name) {
-      setError('Todos los campos obligatorios deben ser completados');
+    // Validación básica
+    if (!formData.first_name || !formData.last_name || !formData.document_number || !formData.email) {
+      setError('Los campos marcados con * son obligatorios');
       setLoading(false);
       return;
     }
@@ -748,201 +719,213 @@ const EditMemberModal = ({ member, onSave, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-      {/*<div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">*/}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">Editar Socio del Club</h3>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre *
-              </label>
-              <input
-                type="text"
-                name="first_name"
-                value={formData.first_name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Apellido *
-              </label>
-              <input
-                type="text"
-                name="last_name"
-                value={formData.last_name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Editar Socio: ${member?.first_name} ${member?.last_name}`}
+      size="xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <AlertCircle size={20} />
+              <span>{error}</span>
             </div>
           </div>
-        <div className="grid grid-cols-4 gap-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                Documento *
-                </label>
-                <input
-                type="text"
-                name="document_number"
-                value={formData.document_number}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-                />
-            </div>
-            <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                Teléfono *
-                </label>
-                <input
-                type="text"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-                />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha nacimiento *
-              </label>
-              <input
-                type="date"
-                name="birth_date"
-                value={formData.birth_date ? formData.birth_date.split('T')[0] : ''}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sexo 
-            </label>
-            <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option value="">Seleccionar género</option>
-                <option value="male">Masculino</option>
-                <option value="female">Femenino</option>
-                <option value="other">Otro, no indica</option>
-            </select>
-          </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email *
+              Nombre *
             </label>
             <input
-              type="email"
-              name="email"
-              value={formData.email}
+              type="text"
+              name="first_name"
+              value={formData.first_name}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             />
           </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Domicilio *
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Condiciones médicas
-              </label>
-              <input
-                type="text"
-                name="medical_conditions"
-                value={formData.medical_conditions}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contacto emergencia
-              </label>
-              <input
-                type="text"
-                name="emergency_contact_name"
-                value={formData.emergency_contact_name}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tel emergencia
-              </label>
-              <input
-                type="text"
-                name="emergency_contact_phone"
-                value={formData.emergency_contact_phone}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Estado
-              </label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="active">Activo</option>
-                <option value="inactive">Inactivo</option>
-              </select>
-            </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Apellido *
+            </label>
+            <input
+              type="text"
+              name="last_name"
+              value={formData.last_name}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
+            />
           </div>
-        </form>
-        
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Documento *
+            </label>
+            <input
+              type="text"
+              name="document_number"
+              value={formData.document_number}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono
+            </label>
+            <input
+              type="tel"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Ej: +54 9 11 1234-5678"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Fecha de Nacimiento
+            </label>
+            <input
+              type="date"
+              name="birth_date"
+              value={formData.birth_date}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sexo
+            </label>
+            <select
+              name="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="male">Masculino</option>
+              <option value="female">Femenino</option>
+              <option value="other">Otro / No indica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Email *
+          </label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Domicilio
+          </label>
+          <input
+            type="text"
+            name="address"
+            value={formData.address}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Calle, número, ciudad, provincia"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Condiciones Médicas
+          </label>
+          <textarea
+            name="medical_conditions"
+            value={formData.medical_conditions}
+            onChange={handleChange}
+            rows="2"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Alergias, enfermedades crónicas, etc."
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Contacto de Emergencia
+            </label>
+            <input
+              type="text"
+              name="emergency_contact_name"
+              value={formData.emergency_contact_name}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Nombre completo"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Teléfono de Emergencia
+            </label>
+            <input
+              type="tel"
+              name="emergency_contact_phone"
+              value={formData.emergency_contact_phone}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Teléfono del contacto"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Estado
+          </label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+
+        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
-            className="px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-md hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center space-x-2"
           >
             {loading ? (
               <>
@@ -950,12 +933,170 @@ const EditMemberModal = ({ member, onSave, onClose }) => {
                 <span>Actualizando...</span>
               </>
             ) : (
-              <span>Actualizar Socio</span>
+              <>
+                <Edit size={18} />
+                <span>Actualizar Socio</span>
+              </>
             )}
           </button>
         </div>
+      </form>
+    </ResponsiveModal>
+  );
+};
+
+// Modal para ver detalles del socio
+const ViewMemberModal = ({ isOpen, onClose, member, currentMemberId }) => {
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No especificada';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES');
+  };
+
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const age = calculateAge(member?.birth_date);
+
+  return (
+    <ResponsiveModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Detalles del Socio"
+      size="lg"
+    >
+      <div className="space-y-6">
+        {/* Avatar y nombre */}
+        <div className="flex items-center space-x-4">
+          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            {member?.first_name?.charAt(0).toUpperCase() || 'U'}
+            {member?.last_name?.charAt(0).toUpperCase() || 'U'}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-xl font-semibold text-gray-900">
+              {member?.first_name} {member?.last_name}
+            </h3>
+            <p className="text-gray-600">{member?.email}</p>
+            {member?.id === currentMemberId && (
+              <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                (Tú)
+              </span>
+            )}
+          </div>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            member?.status === 'active' 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {member?.status === 'active' ? 'Activo' : 'Inactivo'}
+          </span>
+        </div>
+
+        {/* Información personal */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="font-medium text-gray-700 mb-3 flex items-center space-x-2">
+            <User size={18} />
+            <span>Información Personal</span>
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-gray-500">Documento</p>
+              <p className="font-medium">{member?.document_number || 'No especificado'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Sexo</p>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                member?.gender === 'female' ? 'bg-pink-100 text-pink-800' : 
+                member?.gender === 'male'   ? 'bg-blue-100 text-blue-800'  : 
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {member?.gender === 'male' ? 'Masculino' : member?.gender === 'female' ? 'Femenino' : 'Otro'}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Fecha de Nacimiento</p>
+              <p className="font-medium">
+                {formatDate(member?.birth_date)}
+                {age && <span className="text-gray-600 text-sm ml-2">({age} años)</span>}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Teléfono</p>
+              <p className="font-medium">{member?.phone || 'No especificado'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Contacto y ubicación */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h4 className="font-medium text-blue-700 mb-2 flex items-center space-x-2">
+              <MapPin size={16} />
+              <span>Domicilio</span>
+            </h4>
+            <p className="text-sm text-blue-800">
+              {member?.address || 'No especificado'}
+            </p>
+          </div>
+          
+          <div className="bg-purple-50 rounded-lg p-4">
+            <h4 className="font-medium text-purple-700 mb-2 flex items-center space-x-2">
+              <Phone size={16} />
+              <span>Contacto de Emergencia</span>
+            </h4>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-purple-800">
+                {member?.emergency_contact_name || 'No especificado'}
+              </p>
+              {member?.emergency_contact_phone && (
+                <p className="text-sm text-purple-700">
+                  {member.emergency_contact_phone}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Información médica */}
+        {member?.medical_conditions && (
+          <div className="bg-yellow-50 rounded-lg p-4">
+            <h4 className="font-medium text-yellow-700 mb-2 flex items-center space-x-2">
+              <Heart size={16} />
+              <span>Condiciones Médicas</span>
+            </h4>
+            <p className="text-sm text-yellow-800">
+              {member.medical_conditions}
+            </p>
+          </div>
+        )}
+
+        {/* Información del club */}
+        <div className="bg-green-50 rounded-lg p-4">
+          <h4 className="font-medium text-green-700 mb-2">Información del Club</h4>
+          <p className="text-sm text-green-800">
+            Este socio pertenece a tu club. Para modificar la membresía del club, contacta con un administrador.
+          </p>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
-    </div>
+    </ResponsiveModal>
   );
 };
 

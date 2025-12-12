@@ -1,80 +1,75 @@
 import React, { useState, useEffect } from 'react';
-import { clubEnrollmentService, clubCategoryService, clubMemberService } from '../../services/api';
+import { clubFeeService, clubMemberService, clubFeeTypeService } from '../../services/api';
 import { useClubAuth } from '../../context/ClubAuthContext';
 import { 
-  UserCheck,
+  CreditCard,
   Plus,
   RefreshCw,
   Eye,
   Edit,
   Trash2,
   Search,
+  DollarSign,
   Calendar,
   User,
-  BookOpen,
-  Tag,
   CheckCircle,
   XCircle,
-  Users,
-  BarChart3,
   AlertCircle,
+  BarChart3,
   FileText,
-  Clock
+  Clock,
+  TrendingUp,
+  Receipt,
+  Shield
 } from 'lucide-react';
 
-// Importar componentes responsive
+// Importar los componentes responsive
 import ResponsiveModal from '../ClubDashboard/ResponsiveModal';
 import ResponsiveDataTable from '../ClubDashboard/ResponsiveDataTable';
 
-const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
-  const [enrollments, setEnrollments] = useState([]);
+const ClubFeesManagement = ({ openModal, closeModal }) => {
+  const [fees, setFees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [editingEnrollment, setEditingEnrollment] = useState(null);
+  const [editingFee, setEditingFee] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedEnrollment, setSelectedEnrollment] = useState(null);
+  const [selectedFee, setSelectedFee] = useState(null);
   
   // Estados para las dependencias
-  const [disciplines, setDisciplines] = useState([]);
-  const [categories, setCategories] = useState([]);
   const [members, setMembers] = useState([]);
+  const [feetypes, setFeeTypes] = useState([]);
   
   const { user: currentUser } = useClubAuth();
 
   useEffect(() => {
-    loadEnrollments();
+    loadFees();
   }, []);
 
-  const loadEnrollments = async () => {
+  const loadFees = async () => {
     try {
       setLoading(true);
       setError('');
 
-      // Cargar categorías
-      const categoryData = await clubCategoryService.getCategoriesByClubId(currentUser.club_id);
-      const activeCategories = categoryData.filter(category => category.status === 'active');
-      setCategories(activeCategories);
-      
-      // Cargar disciplinas
-      const disciplineData = await clubCategoryService.getDisciplinesByClubId(currentUser.club_id);
-      const activeDisciplines = disciplineData.filter(discipline => discipline.status === 'active');
-      setDisciplines(activeDisciplines);
-
-      // Cargar miembros
+      // Cargar miembros del club
       const memberData = await clubMemberService.getMembersByClubId(currentUser.club_id);
       const activeMembers = memberData.filter(member => member.status === 'active');
       setMembers(activeMembers);
+      
+      // Cargar tipo de cuotas del mismo club
+      const feetypesData = await clubFeeTypeService.getFeeTypesByClubId(currentUser.club_id);
+      const activeFeeTypes = feetypesData.filter(feetype => feetype.status === 'active');
+      setFeeTypes(activeFeeTypes);
 
-      // Cargar inscripciones
-      const enrollmentsData = await clubEnrollmentService.getEnrollmentsByClubId(currentUser.club_id);
-      setEnrollments(enrollmentsData);
+      // Cargar cuotas del mismo club
+      const feesData = await clubFeeService.getFeesByClubId(currentUser.club_id);
+      setFees(feesData);
 
     } catch (err) {
-      setError('Error al cargar las inscripciones: ' + err.message);
-      console.error('Error loading enrollments:', err);
+      setError('Error al cargar las cuotas: ' + err.message);
+      console.error('Error loading fees:', err);
     } finally {
       setLoading(false);
     }
@@ -96,70 +91,71 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
     }
   };
 
-  const handleCreate = async (enrollmentData) => {
+  const handleCreate = async (feeData) => {
     try {
       setError('');
       
-      const enrollmentDataWithClub = {
-        ...enrollmentData,
+      const feeDataWithClub = {
+        ...feeData,
         club_id: currentUser.club_id
       };
       
-      await clubEnrollmentService.createEnrollment(enrollmentDataWithClub);
-      setSuccessMessage('Inscripción creada exitosamente');
+      await clubFeeService.createFee(feeDataWithClub);
+      setSuccessMessage('Cuota creada exitosamente');
       setIsCreateModalOpen(false);
-      loadEnrollments();
+      loadFees();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      throw new Error(err.message || 'Error al crear inscripción');
+      throw new Error(err.message || 'Error al crear cuota');
     }
   };
 
-  const handleEdit = (enrollment) => {
-    setEditingEnrollment(enrollment);
+  const handleEdit = (fee) => {
+    setEditingFee(fee);
     setIsEditModalOpen(true);
   };
 
-  const handleView = (enrollment) => {
-    setSelectedEnrollment(enrollment);
+  const handleView = (fee) => {
+    setSelectedFee(fee);
     setIsViewModalOpen(true);
   };
 
-  const handleUpdate = async (enrollmentData) => {
+  const handleUpdate = async (feeData) => {
+    console.log('DATA: ' + editingFee.id);
     try {
       setError('');
       
-      const enrollmentDataWithClub = {
-        ...enrollmentData,
+      const feeDataWithClub = {
+        ...feeData,
         club_id: currentUser.club_id
       };
       
-      await clubEnrollmentService.updateEnrollment(editingEnrollment.id, enrollmentDataWithClub);
+      await clubFeeService.updateFee(editingFee.id, feeDataWithClub);
       setIsEditModalOpen(false);
-      setEditingEnrollment(null);
-      setSuccessMessage('Inscripción actualizada exitosamente');
-      loadEnrollments();
+      setEditingFee(null);
+      setSuccessMessage('Cuota actualizada exitosamente');
+      loadFees();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Error al actualizar la inscripción: ' + err.message);
-      console.error('Error updating enrollment:', err);
+      setError('Error al actualizar la cuota: ' + err.message);
+      console.error('Error updating fee:', err);
     }
   };
 
-  const handleDelete = async (enrollmentId) => {
-    const enrollmentToDelete = enrollments.find(e => e.id === enrollmentId);
-    console.log('enrollmentId ',enrollmentId)
+  const handleDelete = async (feeId) => {
+    const feeToDelete = fees.find(f => f.id === feeId);
+    
     openModal(
       'Confirmar Eliminación',
       <div className="space-y-4">
         <div className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
           <Trash2 className="text-red-500" size={24} />
           <div>
-            <p className="font-semibold text-red-800">¿Estás seguro de eliminar esta inscripción?</p>
+            <p className="font-semibold text-red-800">¿Estás seguro de eliminar esta cuota?</p>
             <p className="text-sm text-red-600 mt-1">
-              Se eliminará: <strong>{enrollmentToDelete?.first_name} {enrollmentToDelete?.last_name}</strong> de <strong>{enrollmentToDelete?.discipline_name}</strong>
+              Se eliminará: <strong>Cuota de {feeToDelete?.member_name}</strong> - <strong>${feeToDelete?.amount} {feeToDelete?.currency}</strong>
             </p>
             <p className="text-xs text-red-500 mt-2">
               Esta acción no se puede deshacer
@@ -178,20 +174,20 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
             onClick={async () => {
               try {
                 setError('');
-                await clubEnrollmentService.deleteEnrollment(enrollmentId);
-                setSuccessMessage('Inscripción eliminada exitosamente');
+                await clubFeeService.deleteFee(feeId);
+                setSuccessMessage('Cuota eliminada exitosamente');
                 closeModal();
-                loadEnrollments();
+                loadFees();
                 
                 setTimeout(() => setSuccessMessage(''), 3000);
               } catch (err) {
-                setError('Error al eliminar la inscripción: ' + err.message);
+                setError('Error al eliminar la cuota: ' + err.message);
                 closeModal();
               }
             }}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Eliminar Inscripción
+            Eliminar Cuota
           </button>
         </div>
       </div>,
@@ -204,7 +200,7 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-lg text-gray-600">Cargando inscripciones del club...</p>
+          <p className="text-lg text-gray-600">Cargando cuotas del club...</p>
         </div>
       </div>
     );
@@ -215,17 +211,17 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Inscripciones</h2>
-          <p className="text-gray-600 mt-1">Gestiona las inscripciones de socios a actividades</p>
+          <h2 className="text-2xl font-bold text-gray-800">Cuotas</h2>
+          <p className="text-gray-600 mt-1">Administra las cuotas de los socios del club</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
           <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-600">
-            Total: <span className="font-bold">{enrollments.length}</span> inscripciones
+            Total: <span className="font-bold">{fees.length}</span> cuotas
           </div>
           
           <button
-            onClick={loadEnrollments}
+            onClick={loadFees}
             className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
             <RefreshCw size={18} />
@@ -258,80 +254,80 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
       )}
 
       {/* Resumen estadístico */}
-      {enrollments.length > 0 && (
+      {fees.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Inscripciones Activas</p>
+                <p className="text-sm text-gray-500">Total Recaudado</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {enrollments.filter(e => e.status === 'active').length}
+                  ${fees
+                    .filter(f => f.status === 'paid')
+                    .reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0)
+                    .toLocaleString('es-AR')}
                 </p>
               </div>
-              <UserCheck className="text-green-500" size={24} />
+              <DollarSign className="text-green-500" size={24} />
             </div>
           </div>
           
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Socios Únicos</p>
+                <p className="text-sm text-gray-500">Cuotas Pagadas</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {[...new Set(enrollments.map(e => e.member_id))].length}
+                  {fees.filter(f => f.status === 'paid').length}
                 </p>
               </div>
-              <Users className="text-blue-500" size={24} />
+              <CheckCircle className="text-blue-500" size={24} />
             </div>
           </div>
           
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Disciplinas</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {[...new Set(enrollments.map(e => e.discipline_name))].length}
-                </p>
-              </div>
-              <BookOpen className="text-purple-500" size={24} />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Última Inscripción</p>
+                <p className="text-sm text-gray-500">Cuotas Pendientes</p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {enrollments.length > 0 ? 
-                    formatDate(enrollments[enrollments.length - 1].enrollment_date).split('/')[0] + 
-                    '/' + formatDate(enrollments[enrollments.length - 1].enrollment_date).split('/')[1] 
-                    : '-'}
+                  {fees.filter(f => f.status === 'pending').length}
                 </p>
               </div>
-              <Calendar className="text-orange-500" size={24} />
+              <Clock className="text-orange-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Cuotas Vencidas</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {fees.filter(f => f.status === 'overdue').length}
+                </p>
+              </div>
+              <AlertCircle className="text-red-500" size={24} />
             </div>
           </div>
         </div>
       )}
 
       {/* DataTable Responsive */}
-      {enrollments.length === 0 ? (
+      {fees.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-8 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserCheck size={32} className="text-gray-400" />
+            <CreditCard size={32} className="text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay inscripciones registradas</h3>
-          <p className="text-gray-600 mb-6">Inscribe a los socios en las actividades de tu club</p>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay cuotas registradas</h3>
+          <p className="text-gray-600 mb-6">Gestiona las cuotas de los socios de tu club</p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-2"
           >
             <Plus size={18} />
-            <span>Crear Primera Inscripción</span>
+            <span>Crear Primera Cuota</span>
           </button>
         </div>
       ) : (
         <ResponsiveDataTable
-          data={enrollments}
+          data={fees}
           columns={[
             { 
               key: 'member', 
@@ -339,32 +335,31 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
               render: (_, item) => (
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
-                    {item.first_name?.charAt(0).toUpperCase() || 'S'}
+                    {item.member_name?.charAt(0).toUpperCase() || 'S'}
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">
-                      {item.first_name} {item.last_name}
+                      {item.member_name}
                     </div>
-                    {item.document_number && (
-                      <div className="text-xs text-gray-500">DNI: {item.document_number}</div>
+                    {item.fee_type_name && (
+                      <div className="text-xs text-gray-500">{item.fee_type_name}</div>
                     )}
                   </div>
                 </div>
               )
             },
             { 
-              key: 'discipline', 
-              label: 'Actividad',
-              render: (_, item) => (
-                <div>
-                  <div className="font-medium text-gray-900">{item.discipline_name}</div>
-                  <div className="text-xs text-gray-500">{item.category_name}</div>
+              key: 'amount', 
+              label: 'Monto',
+              render: (value, item) => (
+                <div className="font-medium text-gray-900">
+                  ${parseFloat(value || 0).toLocaleString('es-AR')} {item.currency}
                 </div>
               )
             },
             { 
-              key: 'enrollment_date', 
-              label: 'Fecha',
+              key: 'due_date', 
+              label: 'Vencimiento',
               render: (value) => (
                 <div className="flex items-center space-x-1">
                   <Calendar size={12} className="text-gray-400" />
@@ -373,15 +368,32 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
               )
             },
             { 
+              key: 'payment_date', 
+              label: 'Fecha Pago',
+              render: (value) => (
+                <div className="flex items-center space-x-1">
+                  <Calendar size={12} className="text-gray-400" />
+                  <span className="text-sm">{value ? formatDate(value) : 'Sin pagar'}</span>
+                </div>
+              )
+            },
+            { 
               key: 'status', 
               label: 'Estado',
               render: (value) => (
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  value === 'active' 
+                  value === 'paid' 
                     ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
+                    : value === 'pending'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : value === 'overdue'
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {value === 'active' ? 'Activo' : 'Inactivo'}
+                  {value === 'paid' ? 'Pagado' : 
+                   value === 'pending' ? 'Pendiente' : 
+                   value === 'overdue' ? 'Vencido' : 
+                   value === 'cancelled' ? 'Cancelado' : 'Desconocido'}
                 </span>
               )
             }
@@ -411,41 +423,39 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
         />
       )}
 
-      {/* Modal para crear inscripción */}
-      <CreateEnrollmentModal
+      {/* Modal para crear cuota */}
+      <CreateFeeModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSave={handleCreate}
         members={members}
-        disciplines={disciplines}
-        categories={categories}
+        feetypes={feetypes}
       />
 
-      {/* Modal para editar inscripción */}
-      {editingEnrollment && (
-        <EditEnrollmentModal
+      {/* Modal para editar cuota */}
+      {editingFee && (
+        <EditFeeModal
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
-            setEditingEnrollment(null);
+            setEditingFee(null);
           }}
-          enrollment={editingEnrollment}
+          fee={editingFee}
           onSave={handleUpdate}
           members={members}
-          disciplines={disciplines}
-          categories={categories}
+          feetypes={feetypes}
         />
       )}
 
-      {/* Modal para ver detalles de la inscripción */}
-      {selectedEnrollment && (
-        <ViewEnrollmentModal
+      {/* Modal para ver detalles de la cuota */}
+      {selectedFee && (
+        <ViewFeeModal
           isOpen={isViewModalOpen}
           onClose={() => {
             setIsViewModalOpen(false);
-            setSelectedEnrollment(null);
+            setSelectedFee(null);
           }}
-          enrollment={selectedEnrollment}
+          fee={selectedFee}
           formatDate={formatDate}
         />
       )}
@@ -453,30 +463,28 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
   );
 };
 
-// Modal para crear inscripción
-const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, categories }) => {
+// Modal para crear cuota
+const CreateFeeModal = ({ isOpen, onClose, onSave, members, feetypes }) => {
   const [formData, setFormData] = useState({
     member_id: '',
-    discipline_id: '',
-    category_id: '',
-    enrollment_date: new Date().toISOString().split('T')[0],
+    fee_type_id: '',
+    amount: '',
+    currency: 'ARS',
+    due_date: new Date().toISOString().split('T')[0],
+    payment_date: '',
+    transaction_id: '',
     notes: '',
-    status: 'active'
+    status: 'pending'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Filtrar categorías basadas en la disciplina seleccionada
-  const filteredCategories = disciplines.find(d => d.id === parseInt(formData.discipline_id))
-    ? categories.filter(c => c.discipline_id === parseInt(formData.discipline_id))
-    : [];
-
   const handleSubmit = async (e) => {
     e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.member_id || !formData.discipline_id || !formData.category_id) {
+    if (!formData.member_id || !formData.fee_type_id || !formData.amount || !formData.due_date) {
       setError('Los campos marcados con * son obligatorios');
       setLoading(false);
       return;
@@ -487,11 +495,14 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
       // Reset form on success
       setFormData({
         member_id: '',
-        discipline_id: '',
-        category_id: '',
-        enrollment_date: new Date().toISOString().split('T')[0],
+        fee_type_id: '',
+        amount: '',
+        currency: 'ARS',
+        due_date: new Date().toISOString().split('T')[0],
+        payment_date: '',
+        transaction_id: '',
         notes: '',
-        status: 'active'
+        status: 'pending'
       });
     } catch (err) {
       setError(err.message);
@@ -503,25 +514,30 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    setFormData(prev => {
-      const newData = {
-        ...prev,
-        [name]: value
-      };
-      
-      if (name === 'discipline_id') {
-        newData.category_id = '';
-      }
-      
-      return newData;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Auto-fill amount based on selected fee type
+  const handleFeeTypeChange = (e) => {
+    const feeTypeId = e.target.value;
+    const selectedFeeType = feetypes.find(ft => ft.id === parseInt(feeTypeId));
+    
+    setFormData(prev => ({
+      ...prev,
+      fee_type_id: feeTypeId,
+      amount: selectedFeeType?.amount || '',
+      currency: selectedFeeType?.currency || 'ARS'
+    }));
   };
 
   return (
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Crear Nueva Inscripción"
+      title="Crear Nueva Cuota"
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -557,19 +573,19 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Disciplina *
+              Tipo de Cuota *
             </label>
             <select
-              name="discipline_id"
-              value={formData.discipline_id}
-              onChange={handleChange}
+              name="fee_type_id"
+              value={formData.fee_type_id}
+              onChange={handleFeeTypeChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             >
-              <option value="">Seleccionar disciplina</option>
-              {disciplines.map((discipline) => (
-                <option key={discipline.id} value={discipline.id}>
-                  {discipline.name}
+              <option value="">Seleccionar tipo</option>
+              {feetypes.map((feetype) => (
+                <option key={feetype.id} value={feetype.id}>
+                  {feetype.name} - ${feetype.amount} {feetype.currency}
                 </option>
               ))}
             </select>
@@ -577,49 +593,37 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Categoría *
+              Monto *
             </label>
-            <select
-              name="category_id"
-              value={formData.category_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-              disabled={!formData.discipline_id || filteredCategories.length === 0}
-            >
-              <option value="">
-                {!formData.discipline_id 
-                  ? 'Seleccione disciplina primero' 
-                  : filteredCategories.length === 0 
-                    ? 'No hay categorías'
-                    : 'Seleccionar categoría'
-                }
-              </option>
-              {filteredCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            {formData.discipline_id && filteredCategories.length === 0 && (
-              <p className="text-yellow-600 text-sm mt-1">
-                Esta disciplina no tiene categorías configuradas
-              </p>
-            )}
+            <div className="flex">
+              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500">
+                {formData.currency}
+              </span>
+              <input
+                type="number"
+                step="0.01"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                required
+              />
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fecha de Inscripción
+              Fecha de Vencimiento *
             </label>
             <input
               type="date"
-              name="enrollment_date"
-              value={formData.enrollment_date}
+              name="due_date"
+              value={formData.due_date}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
             />
           </div>
 
@@ -633,11 +637,44 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
+              <option value="pending">Pendiente</option>
+              <option value="paid">Pagado</option>
+              <option value="overdue">Vencido</option>
+              <option value="cancelled">Cancelado</option>
             </select>
           </div>
         </div>
+
+        {formData.status === 'paid' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha de Pago
+              </label>
+              <input
+                type="date"
+                name="payment_date"
+                value={formData.payment_date}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ID de Transacción
+              </label>
+              <input
+                type="text"
+                name="transaction_id"
+                value={formData.transaction_id}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Ej: TRANS-123456"
+              />
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -649,19 +686,19 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             rows="3"
-            placeholder="Observaciones adicionales sobre esta inscripción..."
+            placeholder="Observaciones adicionales sobre esta cuota..."
           />
         </div>
 
         <div className="bg-green-50 p-4 rounded-lg">
           <div className="flex items-start space-x-3">
-            <UserCheck size={18} className="text-green-600 mt-0.5" />
+            <CreditCard size={18} className="text-green-600 mt-0.5" />
             <div>
               <p className="text-sm text-green-700">
-                <strong>Importante:</strong> Verifica que el socio cumple con los requisitos de la categoría seleccionada.
+                <strong>Importante:</strong> Las cuotas marcadas como "Pagado" se consideran como ingresos recibidos.
               </p>
               <p className="text-xs text-green-600 mt-1">
-                La inscripción puede ser activada o desactivada según sea necesario.
+                Los estados se pueden actualizar en cualquier momento según el pago real.
               </p>
             </div>
           </div>
@@ -689,7 +726,7 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
             ) : (
               <>
                 <Plus size={18} />
-                <span>Crear Inscripción</span>
+                <span>Crear Cuota</span>
               </>
             )}
           </button>
@@ -699,30 +736,28 @@ const CreateEnrollmentModal = ({ isOpen, onClose, onSave, members, disciplines, 
   );
 };
 
-// Modal para editar inscripción
-const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, disciplines, categories }) => {
+// Modal para editar cuota
+const EditFeeModal = ({ isOpen, onClose, fee, onSave, members, feetypes }) => {
   const [formData, setFormData] = useState({
-    member_id: enrollment?.member_id || '',
-    discipline_id: enrollment?.discipline_id || '',
-    category_id: enrollment?.category_id || '',
-    enrollment_date: enrollment?.enrollment_date ? enrollment.enrollment_date.split('T')[0] : new Date().toISOString().split('T')[0],
-    notes: enrollment?.notes || '',
-    status: enrollment?.status || 'active'
+    member_id: fee?.member_id || '',
+    fee_type_id: fee?.fee_type_id || '',
+    amount: fee?.amount || '',
+    currency: fee?.currency || 'ARS',
+    due_date: fee?.due_date ? fee.due_date.split('T')[0] : new Date().toISOString().split('T')[0],
+    payment_date: fee?.payment_date ? fee.payment_date.split('T')[0] : '',
+    transaction_id: fee?.transaction_id || '',
+    notes: fee?.notes || '',
+    status: fee?.status || 'pending'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Filtrar categorías basadas en la disciplina seleccionada
-  const filteredCategories = disciplines.find(d => d.id === parseInt(formData.discipline_id))
-    ? categories.filter(c => c.discipline_id === parseInt(formData.discipline_id))
-    : [];
-
   const handleSubmit = async (e) => {
     e?.preventDefault();
     setLoading(true);
     setError('');
 
-    if (!formData.member_id || !formData.discipline_id || !formData.category_id) {
+    if (!formData.member_id || !formData.fee_type_id || !formData.amount || !formData.due_date) {
       setError('Los campos marcados con * son obligatorios');
       setLoading(false);
       return;
@@ -740,25 +775,30 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    setFormData(prev => {
-      const newData = {
-        ...prev,
-        [name]: value
-      };
-      
-      if (name === 'discipline_id') {
-        newData.category_id = '';
-      }
-      
-      return newData;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Auto-fill amount based on selected fee type
+  const handleFeeTypeChange = (e) => {
+    const feeTypeId = e.target.value;
+    const selectedFeeType = feetypes.find(ft => ft.id === parseInt(feeTypeId));
+    
+    setFormData(prev => ({
+      ...prev,
+      fee_type_id: feeTypeId,
+      amount: selectedFeeType?.amount || prev.amount,
+      currency: selectedFeeType?.currency || prev.currency
+    }));
   };
 
   return (
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Editar Inscripción: ${enrollment?.first_name} ${enrollment?.last_name}`}
+      title={`Editar Cuota: ${fee?.member_name}`}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -776,7 +816,7 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
             Socio *
           </label>
           <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
-            {enrollment?.first_name} {enrollment?.last_name}
+            {fee?.member_name}
           </div>
           <p className="text-xs text-gray-500 mt-1">El socio no se puede modificar</p>
         </div>
@@ -784,19 +824,19 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Disciplina *
+              Tipo de Cuota *
             </label>
             <select
-              name="discipline_id"
-              value={formData.discipline_id}
-              onChange={handleChange}
+              name="fee_type_id"
+              value={formData.fee_type_id}
+              onChange={handleFeeTypeChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
             >
-              <option value="">Seleccionar disciplina</option>
-              {disciplines.map((discipline) => (
-                <option key={discipline.id} value={discipline.id}>
-                  {discipline.name}
+              <option value="">Seleccionar tipo</option>
+              {feetypes.map((feetype) => (
+                <option key={feetype.id} value={feetype.id}>
+                  {feetype.name} - ${feetype.amount} {feetype.currency}
                 </option>
               ))}
             </select>
@@ -804,44 +844,37 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Categoría *
+              Monto *
             </label>
-            <select
-              name="category_id"
-              value={formData.category_id}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              required
-              disabled={!formData.discipline_id || filteredCategories.length === 0}
-            >
-              <option value="">
-                {!formData.discipline_id 
-                  ? 'Seleccione disciplina primero' 
-                  : filteredCategories.length === 0 
-                    ? 'No hay categorías'
-                    : 'Seleccionar categoría'
-                }
-              </option>
-              {filteredCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex">
+              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 bg-gray-50 text-gray-500">
+                {formData.currency}
+              </span>
+              <input
+                type="number"
+                step="0.01"
+                name="amount"
+                value={formData.amount}
+                onChange={handleChange}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                required
+              />
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fecha de Inscripción
+              Fecha de Vencimiento *
             </label>
             <input
               type="date"
-              name="enrollment_date"
-              value={formData.enrollment_date}
+              name="due_date"
+              value={formData.due_date}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              required
             />
           </div>
 
@@ -855,11 +888,44 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option value="active">Activo</option>
-              <option value="inactive">Inactivo</option>
+              <option value="pending">Pendiente</option>
+              <option value="paid">Pagado</option>
+              <option value="overdue">Vencido</option>
+              <option value="cancelled">Cancelado</option>
             </select>
           </div>
         </div>
+
+        {formData.status === 'paid' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha de Pago
+              </label>
+              <input
+                type="date"
+                name="payment_date"
+                value={formData.payment_date}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ID de Transacción
+              </label>
+              <input
+                type="text"
+                name="transaction_id"
+                value={formData.transaction_id}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="Ej: TRANS-123456"
+              />
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -896,7 +962,7 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
             ) : (
               <>
                 <Edit size={18} />
-                <span>Actualizar Inscripción</span>
+                <span>Actualizar Cuota</span>
               </>
             )}
           </button>
@@ -906,33 +972,47 @@ const EditEnrollmentModal = ({ isOpen, onClose, enrollment, onSave, members, dis
   );
 };
 
-// Modal para ver detalles de la inscripción
-const ViewEnrollmentModal = ({ isOpen, onClose, enrollment, formatDate }) => {
+// Modal para ver detalles de la cuota
+const ViewFeeModal = ({ isOpen, onClose, fee, formatDate }) => {
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'paid': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'overdue': return 'bg-red-100 text-red-800';
+      case 'cancelled': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'paid': return 'Pagado';
+      case 'pending': return 'Pendiente';
+      case 'overdue': return 'Vencido';
+      case 'cancelled': return 'Cancelado';
+      default: return 'Desconocido';
+    }
+  };
+
   return (
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Detalles de la Inscripción"
+      title="Detalles de la Cuota"
       size="md"
     >
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-            {enrollment?.first_name?.charAt(0).toUpperCase() || 'S'}
+            {fee?.member_name?.charAt(0).toUpperCase() || 'C'}
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">
-              {enrollment?.first_name} {enrollment?.last_name}
-            </h3>
-            <p className="text-gray-600">{enrollment?.discipline_name} - {enrollment?.category_name}</p>
+            <h3 className="text-xl font-semibold text-gray-900">{fee?.member_name}</h3>
+            <p className="text-gray-600">{fee?.fee_type_name}</p>
           </div>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            enrollment?.status === 'active' 
-              ? 'bg-green-100 text-green-800' 
-              : 'bg-red-100 text-red-800'
-          }`}>
-            {enrollment?.status === 'active' ? 'Activo' : 'Inactivo'}
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(fee?.status)}`}>
+            {getStatusText(fee?.status)}
           </span>
         </div>
 
@@ -946,53 +1026,60 @@ const ViewEnrollmentModal = ({ isOpen, onClose, enrollment, formatDate }) => {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Nombre:</span>
-                <span className="font-medium">{enrollment?.first_name} {enrollment?.last_name}</span>
+                <span className="font-medium">{fee?.member_name}</span>
               </div>
-              {enrollment?.document_number && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Documento:</span>
-                  <span className="font-medium">{enrollment.document_number}</span>
-                </div>
-              )}
-              {enrollment?.email && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium">{enrollment.email}</span>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span className="text-gray-600">Tipo de Cuota:</span>
+                <span className="font-medium">{fee?.fee_type_name}</span>
+              </div>
             </div>
           </div>
 
           <div className="bg-gray-50 p-4 rounded-lg">
             <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
-              <BookOpen size={16} />
-              <span>Actividad</span>
+              <DollarSign size={16} />
+              <span>Monto</span>
             </h4>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-gray-600">Disciplina:</span>
-                <span className="font-medium">{enrollment?.discipline_name}</span>
+                <span className="text-gray-600">Importe:</span>
+                <span className="font-medium text-green-600">
+                  ${parseFloat(fee?.amount || 0).toLocaleString('es-AR')} {fee?.currency}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600">Categoría:</span>
-                <span className="font-medium">{enrollment?.category_name}</span>
+                <span className="text-gray-600">Vencimiento:</span>
+                <span className="font-medium">{formatDate(fee?.due_date)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Inscripción:</span>
-                <span className="font-medium">{formatDate(enrollment?.enrollment_date)}</span>
-              </div>
+              {fee?.payment_date && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Fecha Pago:</span>
+                  <span className="font-medium">{formatDate(fee.payment_date)}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Observaciones */}
-        {enrollment?.notes && (
+        {/* Información adicional */}
+        {(fee?.transaction_id || fee?.notes) && (
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-medium text-blue-700 mb-2 flex items-center space-x-2">
               <FileText size={16} />
-              <span>Observaciones</span>
+              <span>Información Adicional</span>
             </h4>
-                       <p className="text-blue-700">{enrollment.notes}</p>
+            {fee?.transaction_id && (
+              <div className="mb-2">
+                <span className="text-blue-700 text-sm">ID de Transacción:</span>
+                <p className="font-medium text-blue-800">{fee.transaction_id}</p>
+              </div>
+            )}
+            {fee?.notes && (
+              <div>
+                <span className="text-blue-700 text-sm">Notas:</span>
+                <p className="text-blue-700 mt-1">{fee.notes}</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1000,20 +1087,20 @@ const ViewEnrollmentModal = ({ isOpen, onClose, enrollment, formatDate }) => {
         <div className="border-t pt-4">
           <h4 className="font-medium text-gray-700 mb-3 flex items-center space-x-2">
             <Clock size={16} />
-            <span>Información Adicional</span>
+            <span>Información del Sistema</span>
           </h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-600">ID de Inscripción:</span>
-              <span className="font-mono text-gray-800">{enrollment?.id}</span>
+              <span className="text-gray-600">ID de Cuota:</span>
+              <span className="font-mono text-gray-800">#{fee?.id}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Creado:</span>
-              <span className="text-gray-800">{enrollment?.created_at ? formatDate(enrollment.created_at) : 'N/A'}</span>
+              <span className="text-gray-600">Creada:</span>
+              <span className="text-gray-800">{fee?.created_at ? formatDate(fee.created_at) : 'N/A'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Actualizado:</span>
-              <span className="text-gray-800">{enrollment?.updated_at ? formatDate(enrollment.updated_at) : 'N/A'}</span>
+              <span className="text-gray-600">Actualizada:</span>
+              <span className="text-gray-800">{fee?.updated_at ? formatDate(fee.updated_at) : 'N/A'}</span>
             </div>
           </div>
         </div>
@@ -1026,19 +1113,10 @@ const ViewEnrollmentModal = ({ isOpen, onClose, enrollment, formatDate }) => {
           >
             Cerrar
           </button>
-          <button
-            onClick={() => {
-              // Aquí podrías agregar funcionalidad de imprimir o exportar
-              onClose();
-            }}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-          >
-            Imprimir
-          </button>
         </div>
       </div>
     </ResponsiveModal>
   );
 };
 
-export default ClubEnrollmentsManagement;
+export default ClubFeesManagement;
