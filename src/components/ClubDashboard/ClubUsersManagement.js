@@ -45,7 +45,14 @@ const ClubUsersManagement = ({ openModal, closeModal }) => {
       
       // Cargar usuarios del mismo club
       const usersData = await clubUserService.getUsersByClubId(currentUser.club_id);
-      setUsers(usersData);
+
+      // Creo el campo name para la búsqueda
+      const usersWithVirtualFields = usersData.map(users => ({
+        ...users,
+        name: `${users.first_name} ${users.last_name}`.toLowerCase()
+      }));
+      
+      setUsers(usersWithVirtualFields);
 
     } catch (err) {
       setError('Error al cargar los usuarios: ' + err.message);

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useClubAuth } from '../../context/ClubAuthContext';
+import { useMemberAuth } from '../../context/MemberAuthContext';
 import { 
   Home, 
   Users, 
@@ -20,13 +20,13 @@ import {
   Menu,
   X,
   ChevronRight,
-  Settings,Settings2,
+  Settings,
   UserCircle,
   Shield
 } from 'lucide-react';
 
-const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
-  const { user, logout } = useClubAuth();
+const MemberSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
+  const { member, logout } = useMemberAuth();
   const [expandedSections, setExpandedSections] = useState({});
 
   // Menu base para todos los usuarios del club
@@ -41,7 +41,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
       id: 'profile', 
       label: 'Mi Perfil', 
       icon: <UserCircle size={20} />,
-      color: 'text-green-400'
+      color: 'text-purple-400'
     }
   ];
 
@@ -51,7 +51,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
       title: 'Gestión',
       icon: <Settings size={18} />,
       items: [
-        { id: 'users', label: 'Usuarios', icon: <Users size={18} /> },
+        { id: 'members', label: 'Usuarios', icon: <Users size={18} /> },
         { id: 'members', label: 'Socios', icon: <UserStar size={18} /> },
       ]
     },
@@ -74,17 +74,10 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
         { id: 'paymentmethods', label: 'Métodos de pago', icon: <CreditCard size={18} /> },
         { id: 'paymentmethods', label: 'Caja', icon: <DollarSign size={18} /> },
       ]
-    },
-    ajustes: {
-      title: 'Ajustes del sistema',
-      icon: <Settings2 size={18} />,
-      items: [
-        { id: 'settings', label: 'API billeteras', icon: <Wallet size={18} /> }
-      ]
     }
   };
 
-  const isAdmin = user?.role === 'club_admin' || user?.role === 'super_admin';
+  const isAdmin = member?.role === 'club_admin' || member?.role === 'super_admin';
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -98,17 +91,17 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
   };
 
   const getRoleBadge = () => {
-    if (!user?.role) return null;
+    if (!member?.role) return null;
     
     const roleConfig = {
       club_admin: { label: 'Administrador', color: 'bg-purple-600', icon: <Shield size={12} /> },
       super_admin: { label: 'Super Admin', color: 'bg-red-600', icon: <Shield size={12} /> },
       teacher: { label: 'Profesor', color: 'bg-blue-600', icon: <User size={12} /> },
-      cashier: { label: 'Cajero', color: 'bg-green-600', icon: <DollarSign size={12} /> },
-      default: { label: user.role, color: 'bg-gray-600', icon: <User size={12} /> }
+      cashier: { label: 'Cajero', color: 'bg-purple-600', icon: <DollarSign size={12} /> },
+      default: { label: member.role, color: 'bg-gray-600', icon: <User size={12} /> }
     };
 
-    const config = roleConfig[user.role] || roleConfig.default;
+    const config = roleConfig[member.role] || roleConfig.default;
     
     return (
       <div className={`flex items-center ${config.color} text-white px-2 py-1 rounded-full text-xs font-medium mt-1`}>
@@ -121,7 +114,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
   return (
     <div className={`
       ${mobile ? 'w-full' : 'w-64'}
-      bg-gradient-to-b from-green-800 to-green-900
+      bg-gradient-to-b from-purple-800 to-purple-900
       text-white
       h-screen
       flex flex-col
@@ -129,13 +122,13 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
       ${mobile ? 'pb-20' : ''}
     `}>
       {/* Header del Sidebar */}
-      <div className="p-4 border-b border-green-700/50">
+      <div className="p-4 border-b border-purple-700/50">
         <div className="flex items-center space-x-3">
           {/* Logo del Club */}
-          {user?.club_logo ? (
+          {member?.club_logo ? (
             <img 
-              src={user.club_logo} 
-              alt={`Logo ${user?.club_name}`}
+              src={member.club_logo} 
+              alt={`Logo ${member?.club_name}`}
               className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-lg"
             />
           ) : (
@@ -146,10 +139,10 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
           
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate">
-              {mobile ? user?.club_name : 'Panel'}
+              {mobile ? member?.club_name : 'Panel'}
             </h1>
-            <p className="text-green-200 text-sm truncate">
-              {user?.first_name} {user?.last_name}
+            <p className="text-purple-200 text-sm truncate">
+              {member?.first_name} {member?.last_name}
             </p>
             {getRoleBadge()}
           </div>
@@ -158,9 +151,9 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
         {/* Badge de estado en móvil */}
         {mobile && (
           <div className="mt-3 flex items-center space-x-2">
-            <div className="flex-1 bg-green-700/30 rounded-lg p-2">
-              <p className="text-xs text-green-200">
-                <span className="font-medium">Club:</span> {user?.club_name}
+            <div className="flex-1 bg-purple-700/30 rounded-lg p-2">
+              <p className="text-xs text-purple-200">
+                <span className="font-medium">Club:</span> {member?.club_name}
               </p>
             </div>
           </div>
@@ -182,7 +175,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
               transition-all duration-200
               ${activeSection === item.id
                 ? 'bg-white/20 backdrop-blur-sm text-white shadow-lg'
-                : 'text-green-100 hover:bg-white/10'
+                : 'text-purple-100 hover:bg-white/10'
               }
               active:scale-[0.98]
               focus:outline-none focus:ring-2 focus:ring-white/50
@@ -203,7 +196,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
           <div key={key} className="mt-6">
             <button
               onClick={() => toggleSection(key)}
-              className="w-full flex items-center justify-between px-4 py-2 text-green-200 hover:text-white transition-colors"
+              className="w-full flex items-center justify-between px-4 py-2 text-purple-200 hover:text-white transition-colors"
             >
               <div className="flex items-center space-x-2">
                 {group.icon}
@@ -216,7 +209,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
             </button>
 
             {expandedSections[key] && (
-              <div className="mt-1 ml-2 pl-6 border-l border-green-700/50 space-y-1">
+              <div className="mt-1 ml-2 pl-6 border-l border-purple-700/50 space-y-1">
                 {group.items.map((item) => (
                   <button
                     key={item.id}
@@ -229,7 +222,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
                       transition-all duration-200
                       ${activeSection === item.id
                         ? 'bg-white/15 text-white'
-                        : 'text-green-200 hover:bg-white/5'
+                        : 'text-purple-200 hover:bg-white/5'
                       }
                       active:scale-[0.98]
                     `}
@@ -246,7 +239,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
         {/* Versión simplificada para móvil */}
         {isAdmin && mobile && (
           <div className="mt-6">
-            <h3 className="text-xs uppercase text-green-300 font-semibold px-4 mb-2">
+            <h3 className="text-xs uppercase text-purple-300 font-semibold px-4 mb-2">
               Administración
             </h3>
             <div className="grid grid-cols-2 gap-2">
@@ -275,7 +268,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
       </nav>
 
       {/* Botón de Cerrar Sesión */}
-      <div className="p-4 border-t border-green-700/50">
+      <div className="p-4 border-t border-purple-700/50">
         <button
           onClick={logout}
           className={`
@@ -298,9 +291,9 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
 
         {/* Información de versión/sesión */}
         <div className="mt-4 text-center">
-          <p className="text-green-300 text-xs">
-            {user?.email && (
-              <span className="block truncate">{user.email}</span>
+          <p className="text-purple-300 text-xs">
+            {member?.email && (
+              <span className="block truncate">{member.email}</span>
             )}
             <span className="block mt-1">Sesión activa</span>
           </p>
@@ -309,9 +302,9 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
 
       {/* Indicador de navegación actual (solo móvil) */}
       {mobile && (
-        <div className="fixed bottom-0 left-0 right-0 bg-green-800 border-t border-green-700 p-2">
+        <div className="fixed bottom-0 left-0 right-0 bg-purple-800 border-t border-purple-700 p-2">
           <div className="text-center">
-            <p className="text-xs text-green-200">
+            <p className="text-xs text-purple-200">
               Navegando: <span className="font-bold capitalize">{activeSection.replace('-', ' ')}</span>
             </p>
           </div>
@@ -321,4 +314,4 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
   );
 };
 
-export default ClubSidebar;
+export default MemberSidebar;

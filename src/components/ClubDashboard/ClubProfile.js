@@ -6,7 +6,7 @@ const ClubProfile = () => {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Información del Club</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Información</h2>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Información del usuario */}
@@ -33,7 +33,7 @@ const ClubProfile = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Rol:</span>
                 <span className="font-medium capitalize">
-                  {user?.role === 'club_admin' ? 'Administrador del Club' : 
+                  {user?.role === 'club_admin' ? 'Administrador' : 
                    user?.role === 'super_admin' ? 'Administrador general' :
                    user?.role === 'teacher' ? 'Profesor' : 'Cajero'}
                 </span>
@@ -52,7 +52,7 @@ const ClubProfile = () => {
 
         {/* Información del club */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Información del Club</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Información</h3>
           <div className="space-y-4">
             {user?.club_logo && (
               <div className="flex justify-center">
@@ -66,7 +66,7 @@ const ClubProfile = () => {
             
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-gray-600">Nombre del Club:</label>
+                <label className="text-sm font-medium text-gray-600">Nombre:</label>
                 <p className="text-lg font-semibold text-gray-900">{user?.club_name}</p>
               </div>
               
@@ -93,7 +93,7 @@ const ClubProfile = () => {
               
               {user?.club_email && (
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Email del Club:</label>
+                  <label className="text-sm font-medium text-gray-600">Email:</label>
                   <p className="text-gray-700 mt-1">{user?.club_email}</p>
                 </div>
               )}

@@ -1,124 +1,117 @@
 import React, { useState, useEffect } from 'react';
-import { clubCategoryService } from '../../services/api';
+import { clubSettingService } from '../../services/api';
 import { useClubAuth } from '../../context/ClubAuthContext';
 import { 
-  Tag,
+  Target,
   Plus,
   RefreshCw,
   Eye,
   Edit,
   Trash2,
   Search,
-  Filter,
+  Palette,
   CheckCircle,
   XCircle,
-  Users,
-  Award,
-  Calendar,
   Hash,
   AlertCircle,
   BarChart3,
-  Tag as TagIcon
+  Users,
+  Trophy,
+  Sparkles
 } from 'lucide-react';
 
 // Importar los componentes responsive
-import ResponsiveModal from '../ClubDashboard/ResponsiveModal';
-import ResponsiveDataTable from '../ClubDashboard/ResponsiveDataTable';
+import ResponsiveModal from './ResponsiveModal';
+import ResponsiveDataTable from './ResponsiveDataTable';
 
-const ClubCategoriesManagement = ({ openModal, closeModal }) => {
-  const [categories, setCategories] = useState([]);
+const ClubSettingsManagement = ({ openModal, closeModal }) => {
+  const [settings, setSettings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [editingCategory, setEditingCategory] = useState(null);
+  const [editingSetting, setEditingSetting] = useState(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  const [disciplines, setDisciplines] = useState([]);
+  const [selectedSetting, setSelectedSetting] = useState(null);
 
   const { user: currentUser } = useClubAuth();
 
   useEffect(() => {
-    loadCategories();
+    loadSettings();
   }, []);
 
-  const loadCategories = async () => {
+  const loadSettings = async () => {
     try {
       setLoading(true);
       setError('');
     
-      // Cargar disciplinas
-      const disciplineData = await clubCategoryService.getDisciplinesByClubId(currentUser.club_id);
-      const activeDisciplines = disciplineData.filter(discipline => discipline.status === 'active');
-      setDisciplines(activeDisciplines);
-
-      // Cargar categorías del mismo club
-      const categoriesData = await clubCategoryService.getCategoriesByClubId(currentUser.club_id);
-      setCategories(categoriesData);
-
+      // Cargar configuraciones del mismo club
+      const settingsData = await clubSettingService.getSettingsByClubId(currentUser.club_id);
+      setSettings(settingsData);
+    
     } catch (err) {
-      setError('Error al cargar las categorías: ' + err.message);
-      console.error('Error loading categories:', err);
+      setError('Error al cargar las configuraciones: ' + err.message);
+      console.error('Error loading settings:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = async (categoryData) => {
+  const handleCreate = async (settingData) => {
     try {
       setError('');
       
-      const categoryDataWithClub = {
-        ...categoryData,
+      const settingDataWithClub = {
+        ...settingData,
         club_id: currentUser.club_id
       };
       
-      await clubCategoryService.createCategory(categoryDataWithClub);
-      setSuccessMessage('Categoría creada exitosamente');
+      await clubSettingService.createSetting(settingDataWithClub);
+      setSuccessMessage('Configuración creada exitosamente');
       setIsCreateModalOpen(false);
-      loadCategories();
+      loadSettings();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      throw new Error(err.message || 'Error al crear categoría');
+      throw new Error(err.message || 'Error al crear configuración');
     }
   };
 
-  const handleEdit = (category) => {
-    setEditingCategory(category);
+  const handleEdit = (setting) => {
+    setEditingSetting(setting);
     setIsEditModalOpen(true);
   };
 
-  const handleView = (category) => {
-    setSelectedCategory(category);
+  const handleView = (setting) => {
+    setSelectedSetting(setting);
     setIsViewModalOpen(true);
   };
 
-  const handleUpdate = async (categoryData) => {
+  const handleUpdate = async (settingData) => {
     try {
       setError('');
       
-      const categoryDataWithClub = {
-        ...categoryData,
+      const settingDataWithClub = {
+        ...settingData,
         club_id: currentUser.club_id
       };
       
-      await clubCategoryService.updateCategory(editingCategory.id, categoryDataWithClub);
+      await clubSettingService.updateSetting(editingSetting.id, settingDataWithClub);
       setIsEditModalOpen(false);
-      setEditingCategory(null);
-      setSuccessMessage('Categoría actualizada exitosamente');
-      loadCategories();
+      setEditingSetting(null);
+      setSuccessMessage('Configuración actualizada exitosamente');
+      loadSettings();
       
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
-      setError('Error al actualizar la categoría: ' + err.message);
-      console.error('Error updating category:', err);
+      setError('Error al actualizar la configuración: ' + err.message);
+      console.error('Error updating setting:', err);
     }
   };
 
-  const handleDelete = async (categoryId) => {
-    const categoryToDelete = categories.find(c => c.id === categoryId);
+  const handleDelete = async (settingId) => {
+    const settingToDelete = settings.find(d => d.id === settingId);
     
     // Usar el modal responsive para confirmación
     openModal(
@@ -127,12 +120,12 @@ const ClubCategoriesManagement = ({ openModal, closeModal }) => {
         <div className="flex items-center space-x-3 p-3 bg-red-50 rounded-lg">
           <Trash2 className="text-red-500" size={24} />
           <div>
-            <p className="font-semibold text-red-800">¿Estás seguro de eliminar esta categoría?</p>
+            <p className="font-semibold text-red-800">¿Estás seguro de eliminar esta configuración?</p>
             <p className="text-sm text-red-600 mt-1">
-              Se eliminará permanentemente: <strong>{categoryToDelete?.name}</strong>
+              Se eliminará permanentemente: <strong>{settingToDelete?.name}</strong>
             </p>
             <p className="text-xs text-red-500 mt-2">
-              Los socios asociados a esta categoría quedarán sin categoría asignada
+              Este paso no tiene vuelta atrás.
             </p>
           </div>
         </div>
@@ -148,20 +141,20 @@ const ClubCategoriesManagement = ({ openModal, closeModal }) => {
             onClick={async () => {
               try {
                 setError('');
-                await clubCategoryService.deleteCategory(categoryId);
-                setSuccessMessage('Categoría eliminada exitosamente');
+                await clubSettingService.deleteSetting(settingId);
+                setSuccessMessage('Configuración eliminada exitosamente');
                 closeModal();
-                loadCategories();
+                loadSettings();
                 
                 setTimeout(() => setSuccessMessage(''), 3000);
               } catch (err) {
-                setError('Error al eliminar la categoría: ' + err.message);
+                setError('Error al eliminar la configuración: ' + err.message);
                 closeModal();
               }
             }}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Eliminar Categoría
+            Eliminar Configuración
           </button>
         </div>
       </div>,
@@ -174,48 +167,28 @@ const ClubCategoriesManagement = ({ openModal, closeModal }) => {
       <div className="flex items-center justify-center h-64">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-lg text-gray-600">Cargando categorías del club...</p>
+          <p className="text-lg text-gray-600">Cargando configuraciones del club...</p>
         </div>
       </div>
     );
   }
-
-  const getLevelColor = (level) => {
-    switch(level) {
-      case 'beginner': return 'bg-blue-100 text-blue-800';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-800';
-      case 'advanced': return 'bg-orange-100 text-orange-800';
-      case 'expert': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getLevelText = (level) => {
-    switch(level) {
-      case 'beginner': return 'Principiante';
-      case 'intermediate': return 'Intermedio';
-      case 'advanced': return 'Avanzado';
-      case 'expert': return 'Experto';
-      default: return level;
-    }
-  };
 
   return (
     <div className="p-4 md:p-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Categorías</h2>
-          <p className="text-gray-600 mt-1">Organiza las categorías por disciplina y nivel</p>
+          <h2 className="text-2xl font-bold text-gray-800">Configuraciones</h2>
+          <p className="text-gray-600 mt-1">Gestiona las diferentes billeteras virtuales</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
           <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-600">
-            Total: <span className="font-bold">{categories.length}</span> categorías
+            Total: <span className="font-bold">{settings.length}</span> configuraciones
           </div>
           
           <button
-            onClick={loadCategories}
+            onClick={loadSettings}
             className="flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
             <RefreshCw size={18} />
@@ -248,39 +221,15 @@ const ClubCategoriesManagement = ({ openModal, closeModal }) => {
       )}
 
       {/* Resumen rápido */}
-      {categories.length > 0 && (
+      {settings.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-500">Total Categorías</p>
-                <p className="text-2xl font-bold text-gray-800">{categories.length}</p>
+                <p className="text-sm text-gray-500">Total Configuraciones</p>
+                <p className="text-2xl font-bold text-gray-800">{settings.length}</p>
               </div>
-              <Tag className="text-green-500" size={24} />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Disciplinas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {[...new Set(categories.map(c => c.discipline_name))].length}
-                </p>
-              </div>
-              <Award className="text-blue-500" size={24} />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Niveles</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {[...new Set(categories.map(c => c.level))].length}
-                </p>
-              </div>
-              <BarChart3 className="text-purple-500" size={24} />
+              <Target className="text-green-500" size={24} />
             </div>
           </div>
           
@@ -288,82 +237,102 @@ const ClubCategoriesManagement = ({ openModal, closeModal }) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Activas</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {categories.filter(c => c.status === 'active').length}
+                <p className="text-2xl font-bold text-green-600">
+                  {settings.filter(d => d.status === 'active').length}
                 </p>
               </div>
               <CheckCircle className="text-green-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Inactivas</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {settings.filter(d => d.status === 'inactive').length}
+                </p>
+              </div>
+              <XCircle className="text-red-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Colores únicos</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {[...new Set(settings.map(d => d.color))].length}
+                </p>
+              </div>
+              <Palette className="text-purple-500" size={24} />
             </div>
           </div>
         </div>
       )}
 
       {/* DataTable Responsive */}
-      {categories.length === 0 ? (
+      {settings.length === 0 ? (
         <div className="bg-white rounded-xl shadow p-8 text-center">
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <TagIcon size={32} className="text-gray-400" />
+            <Target size={32} className="text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay categorías registradas</h3>
-          <p className="text-gray-600 mb-6">Crea categorías para organizar a tus socios por disciplina y nivel</p>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay configuraciones registradas</h3>
+          <p className="text-gray-600 mb-6">Crea configuraciones para organizar las actividades de tu club</p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-2"
           >
             <Plus size={18} />
-            <span>Crear Primera Categoría</span>
+            <span>Crear Primera Configuración</span>
           </button>
         </div>
       ) : (
         <ResponsiveDataTable
-          data={categories}
+          data={settings}
           columns={[
             { 
-              key: 'name', 
-              label: 'Categoría',
+              key: 'notes', 
+              label: 'Clave',
               render: (value, item) => (
                 <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3"
-                  style={{ backgroundColor: item?.color || '#8F3C2C' }}>
-                    {value?.charAt(0).toUpperCase() || 'C'}
+                  <div 
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3"
+                    style={{ backgroundColor: item.color || '#10B981' }}
+                  >
+                    {value?.charAt(0).toUpperCase() || 'D'}
                   </div>
                   <div>
                     <div className="font-medium text-gray-900">{value}</div>
-                    {item.description && (
-                      <div className="text-xs text-gray-500">{item.description}</div>
+                    {item.environment && (
+                      <div className="text-xs text-gray-500 truncate max-w-xs">
+                        {item.environment}
+                      </div>
                     )}
                   </div>
                 </div>
               )
             },
             { 
-              key: 'discipline_name', 
-              label: 'Disciplina',
+              key: 'environment', 
+              label: 'Ambiente',
               render: (value) => (
-                <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                  {value || 'Sin disciplina'}
-                </span>
-              )
-            },
-            { 
-              key: 'age_range', 
-              label: 'Rango de Edad',
-              render: (_, item) => (
-                <div className="flex items-center space-x-1">
-                  <Calendar size={12} className="text-gray-400" />
-                  <span className="text-sm">
-                    {item.min_age || '?'} - {item.max_age || '?'} años
-                  </span>
+                <div className="max-w-xs truncate">
+                  {value || 'Sin ambiente'}
                 </div>
               )
             },
             { 
-              key: 'level', 
-              label: 'Nivel',
+              key: 'color', 
+              label: 'Color',
               render: (value) => (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLevelColor(value)}`}>
-                  {getLevelText(value)}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <div 
+                    className="w-6 h-6 rounded-full border border-gray-300"
+                    style={{ backgroundColor: value }}
+                  />
+                  <span className="text-sm font-mono">{value}</span>
+                </div>
               )
             },
             { 
@@ -405,56 +374,64 @@ const ClubCategoriesManagement = ({ openModal, closeModal }) => {
         />
       )}
 
-      {/* Modal para crear categoría */}
-      <CreateCategoryModal
+      {/* Modal para crear configuración */}
+      <CreateSettingModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSave={handleCreate}
-        disciplines={disciplines}
       />
 
-      {/* Modal para editar categoría */}
-      {editingCategory && (
-        <EditCategoryModal
+      {/* Modal para editar configuración */}
+      {editingSetting && (
+        <EditSettingModal
           isOpen={isEditModalOpen}
           onClose={() => {
             setIsEditModalOpen(false);
-            setEditingCategory(null);
+            setEditingSetting(null);
           }}
-          category={editingCategory}
+          setting={editingSetting}
           onSave={handleUpdate}
-          disciplines={disciplines}
         />
       )}
 
-      {/* Modal para ver detalles de la categoría */}
-      {selectedCategory && (
-        <ViewCategoryModal
+      {/* Modal para ver detalles de la configuración */}
+      {selectedSetting && (
+        <ViewSettingModal
           isOpen={isViewModalOpen}
           onClose={() => {
             setIsViewModalOpen(false);
-            setSelectedCategory(null);
+            setSelectedSetting(null);
           }}
-          category={selectedCategory}
+          setting={selectedSetting}
         />
       )}
     </div>
   );
 };
 
-// Modal para crear categoría
-const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
+// Modal para crear configuración
+const CreateSettingModal = ({ isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    discipline_id: '',
-    min_age: '',
-    max_age: '',
-    level: 'beginner',
+    notes: '',
+    access_token: '',
+    public_key: '',
+    environment: '',
+    color: '#10B981', // Color por defecto verde
     status: 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const colorOptions = [
+    { value: '#10B981', label: 'Verde', name: 'Esmeralda' },
+    { value: '#3B82F6', label: 'Azul', name: 'Azul' },
+    { value: '#8B5CF6', label: 'Púrpura', name: 'Violeta' },
+    { value: '#EF4444', label: 'Rojo', name: 'Rojo' },
+    { value: '#F59E0B', label: 'Ámbar', name: 'Ámbar' },
+    { value: '#EC4899', label: 'Rosa', name: 'Rosa' },
+    { value: '#6366F1', label: 'Índigo', name: 'Índigo' },
+    { value: '#14B8A6', label: 'Turquesa', name: 'Turquesa' }
+  ];
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -462,8 +439,8 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
     setError('');
 
     // Validación
-    if (!formData.name || !formData.discipline_id) {
-      setError('Los campos marcados con * son obligatorios');
+    if (!formData.notes) {
+      setError('El nombre de la configuración es obligatorio');
       setLoading(false);
       return;
     }
@@ -472,13 +449,12 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
       await onSave(formData);
       // Reset form on success
       setFormData({
-        name: '',
-        description: '',
-        discipline_id: '',
-        min_age: '',
-        max_age: '',
-        level: 'beginner',
-        status: 'active'
+          notes: '',
+          access_token: '',
+          public_key: '',
+          environment: '',
+          color: '#10B981', // Color por defecto verde
+          status: 'active'
       });
     } catch (err) {
       setError(err.message);
@@ -495,11 +471,18 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
     }));
   };
 
+  const handleColorChange = (color) => {
+    setFormData(prev => ({
+      ...prev,
+      color
+    }));
+  };
+
   return (
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Crear Nueva Categoría"
+      title="Crear Nueva Configuración"
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -514,111 +497,107 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre de la Categoría *
+            Nombre de la Configuración *
           </label>
           <input
             type="text"
-            name="name"
-            value={formData.name}
+            name="notes"
+            value={formData.notes}
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             required
-            placeholder="Ej: Infantil, Juvenil, Adultos"
+            placeholder="Ej: MERCADO_PAGO, PIX, otros..."
           />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Descripción
+            Access Token
           </label>
-          <textarea
-            name="description"
-            value={formData.description}
+          <input
+            name="access_token"
+            value={formData.access_token}
             onChange={handleChange}
-            rows="2"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            placeholder="Descripción de la categoría"
+            placeholder="Pega aquí el ACCESS TOKEN provisto por tu billetera virtual."
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Public Key
+          </label>
+          <input
+            name="public_key"
+            value={formData.public_key}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+            placeholder="Pega aquí el PUBLIC KEY provisto por tu billetera virtual."
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Disciplina *
-          </label>
-          <select
-            name="discipline_id"
-            value={formData.discipline_id}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            required
-          >
-            <option value="">Seleccionar disciplina</option>
-            {disciplines.map((discipline) => (
-              <option key={discipline.id} value={discipline.id}>
-                {discipline.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Edad Mínima
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                name="min_age"
-                value={formData.min_age}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                min="0"
-                max="100"
-                placeholder="0"
-              />
-              <span className="absolute right-3 top-2 text-gray-500">años</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Edad Máxima
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                name="max_age"
-                value={formData.max_age}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                min="0"
-                max="100"
-                placeholder="100"
-              />
-              <span className="absolute right-3 top-2 text-gray-500">años</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nivel
+              Ambiente
             </label>
             <select
-              name="level"
-              value={formData.level}
+              name="environment"
+              value={formData.environment}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option value="beginner">Principiante</option>
-              <option value="intermediate">Intermedio</option>
-              <option value="advanced">Avanzado</option>
-              <option value="expert">Experto</option>
+              <option value="pending">sandbox</option>
+              <option value="paid">production</option>
             </select>
           </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Color de Identificación
+          </label>
+          <div className="space-y-4">
+            {/* Selector de color personalizado */}
+            <div className="flex items-center space-x-4">
+              <div 
+                className="w-10 h-10 rounded-lg border-2 border-gray-300"
+                style={{ backgroundColor: formData.color }}
+              />
+              <input
+                type="color"
+                name="color"
+                value={formData.color}
+                onChange={handleChange}
+                className="w-16 h-10 cursor-pointer"
+              />
+              <span className="text-sm font-mono">{formData.color}</span>
+            </div>
+
+            {/* Paleta de colores predefinidos */}
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Colores sugeridos:</p>
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                {colorOptions.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => handleColorChange(color.value)}
+                    className={`relative p-1 rounded-lg transition-all ${
+                      formData.color === color.value ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+                    }`}
+                    title={color.name}
+                  >
+                    <div 
+                      className="w-8 h-8 rounded"
+                      style={{ backgroundColor: color.value }}
+                    />
+                    <span className="sr-only">{color.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Estado
@@ -637,13 +616,13 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
 
         <div className="bg-green-50 p-4 rounded-lg">
           <div className="flex items-start space-x-3">
-            <Award size={18} className="text-green-600 mt-0.5" />
+            <Sparkles size={18} className="text-green-600 mt-0.5" />
             <div>
               <p className="text-sm text-green-700">
-                <strong>Consejo:</strong> Las categorías ayudan a organizar a los socios por edades y niveles.
+                <strong>Consejo:</strong> Asegúrate de completar la información correcta para poder recibir pagos.
               </p>
               <p className="text-xs text-green-600 mt-1">
-                Puedes crear categorías específicas para cada disciplina del club.
+                Cada configuración puede tener múltiples ambientes.
               </p>
             </div>
           </div>
@@ -671,7 +650,7 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
             ) : (
               <>
                 <Plus size={18} />
-                <span>Crear Categoría</span>
+                <span>Crear Configuración</span>
               </>
             )}
           </button>
@@ -681,19 +660,29 @@ const CreateCategoryModal = ({ isOpen, onClose, onSave, disciplines }) => {
   );
 };
 
-// Modal para editar categoría
-const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) => {
+// Modal para editar configuración
+const EditSettingModal = ({ isOpen, onClose, setting, onSave }) => {
   const [formData, setFormData] = useState({
-    name: category?.name || '',
-    description: category?.description || '',
-    discipline_id: category?.discipline_id || '',
-    min_age: category?.min_age || '',
-    max_age: category?.max_age || '',
-    level: category?.level || 'beginner',
-    status: category?.status || 'active'
+    notes: setting?.notes || '',
+    access_token: setting?.access_token || '',
+    public_key: setting?.public_key || '',
+    environment: setting?.environment || '',
+    color: setting?.color || '#10B981',
+    status: setting?.status || 'active'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const colorOptions = [
+    { value: '#10B981', label: 'Verde', name: 'Esmeralda' },
+    { value: '#3B82F6', label: 'Azul', name: 'Azul' },
+    { value: '#8B5CF6', label: 'Púrpura', name: 'Violeta' },
+    { value: '#EF4444', label: 'Rojo', name: 'Rojo' },
+    { value: '#F59E0B', label: 'Ámbar', name: 'Ámbar' },
+    { value: '#EC4899', label: 'Rosa', name: 'Rosa' },
+    { value: '#6366F1', label: 'Índigo', name: 'Índigo' },
+    { value: '#14B8A6', label: 'Turquesa', name: 'Turquesa' }
+  ];
 
   const handleSubmit = async (e) => {
     e?.preventDefault();
@@ -701,8 +690,8 @@ const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) =
     setError('');
 
     // Validación
-    if (!formData.name || !formData.discipline_id) {
-      setError('Los campos marcados con * son obligatorios');
+    if (!formData.notes) {
+      setError('El nombre de la configuración es obligatorio');
       setLoading(false);
       return;
     }
@@ -724,11 +713,18 @@ const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) =
     }));
   };
 
+  const handleColorChange = (color) => {
+    setFormData(prev => ({
+      ...prev,
+      color
+    }));
+  };
+
   return (
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Editar Categoría: ${category?.name}`}
+      title={`Editar Configuración: ${setting?.notes}`}
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -743,12 +739,12 @@ const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) =
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre de la Categoría *
+            Nombre de la Configuración *
           </label>
           <input
             type="text"
             name="name"
-            value={formData.name}
+            value={formData.notes}
             onChange={handleChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             required
@@ -757,93 +753,93 @@ const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) =
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Descripción
+            Access Token
           </label>
           <textarea
-            name="description"
-            value={formData.description}
+            name="access_token"
+            value={formData.access_token}
             onChange={handleChange}
-            rows="2"
+            rows="3"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Public Key
+          </label>
+          <textarea
+            name="public_key"
+            value={formData.public_key}
+            onChange={handleChange}
+            rows="3"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Disciplina *
-          </label>
-          <select
-            name="discipline_id"
-            value={formData.discipline_id}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-            required
-          >
-            <option value="">Seleccionar disciplina</option>
-            {disciplines.map((discipline) => (
-              <option key={discipline.id} value={discipline.id}>
-                {discipline.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Edad Mínima
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                name="min_age"
-                value={formData.min_age}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                min="0"
-                max="100"
-              />
-              <span className="absolute right-3 top-2 text-gray-500">años</span>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Edad Máxima
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                name="max_age"
-                value={formData.max_age}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                min="0"
-                max="100"
-              />
-              <span className="absolute right-3 top-2 text-gray-500">años</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Nivel
+              Ambiente
             </label>
             <select
-              name="level"
-              value={formData.level}
+              name="environment"
+              value={formData.environment}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             >
-              <option value="beginner">Principiante</option>
-              <option value="intermediate">Intermedio</option>
-              <option value="advanced">Avanzado</option>
-              <option value="expert">Experto</option>
+              <option value="pending">sandbox</option>
+              <option value="paid">production</option>
             </select>
           </div>
+        
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Color de Identificación
+          </label>
+          <div className="space-y-4">
+            {/* Selector de color personalizado */}
+            <div className="flex items-center space-x-4">
+              <div 
+                className="w-10 h-10 rounded-lg border-2 border-gray-300"
+                style={{ backgroundColor: formData.color }}
+              />
+              <input
+                type="color"
+                name="color"
+                value={formData.color}
+                onChange={handleChange}
+                className="w-16 h-10 cursor-pointer"
+              />
+              <span className="text-sm font-mono">{formData.color}</span>
+            </div>
+
+            {/* Paleta de colores predefinidos */}
+            <div>
+              <p className="text-sm text-gray-600 mb-2">Colores sugeridos:</p>
+              <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                {colorOptions.map((color) => (
+                  <button
+                    key={color.value}
+                    type="button"
+                    onClick={() => handleColorChange(color.value)}
+                    className={`relative p-1 rounded-lg transition-all ${
+                      formData.color === color.value ? 'ring-2 ring-offset-2 ring-gray-400' : ''
+                    }`}
+                    title={color.name}
+                  >
+                    <div 
+                      className="w-8 h-8 rounded"
+                      style={{ backgroundColor: color.value }}
+                    />
+                    <span className="sr-only">{color.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Estado
@@ -882,7 +878,7 @@ const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) =
             ) : (
               <>
                 <Edit size={18} />
-                <span>Actualizar Categoría</span>
+                <span>Actualizar Configuración</span>
               </>
             )}
           </button>
@@ -892,102 +888,96 @@ const EditCategoryModal = ({ isOpen, onClose, category, onSave, disciplines }) =
   );
 };
 
-// Modal para ver detalles de la categoría
-const ViewCategoryModal = ({ isOpen, onClose, category }) => {
-  const getLevelColor = (level) => {
-    switch(level) {
-      case 'beginner': return 'bg-blue-100 text-blue-800';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-800';
-      case 'advanced': return 'bg-orange-100 text-orange-800';
-      case 'expert': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getLevelText = (level) => {
-    switch(level) {
-      case 'beginner': return 'Principiante';
-      case 'intermediate': return 'Intermedio';
-      case 'advanced': return 'Avanzado';
-      case 'expert': return 'Experto';
-      default: return level;
-    }
-  };
-
+// Modal para ver detalles de la configuración
+const ViewSettingModal = ({ isOpen, onClose, setting }) => {
   return (
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Detalles de la Categoría"
+      title="Detalles de la Configuración"
       size="md"
     >
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header con color */}
         <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-            {category?.name?.charAt(0).toUpperCase() || 'C'}
+          <div 
+            className="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold"
+            style={{ backgroundColor: setting?.color || '#10B981' }}
+          >
+            {setting?.notes?.charAt(0).toUpperCase() || 'D'}
           </div>
           <div>
-            <h3 className="text-xl font-semibold text-gray-900">{category?.name}</h3>
-            {category?.description && (
-              <p className="text-gray-600 mt-1">{category.description}</p>
+            <h3 className="text-xl font-semibold text-gray-900">{setting?.notes}</h3>
+            {setting?.environment && (
+              <p className="text-gray-600 mt-1">{setting.environment}</p>
             )}
           </div>
           <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-            category?.status === 'active' 
+            setting?.status === 'active' 
               ? 'bg-green-100 text-green-800' 
               : 'bg-red-100 text-red-800'
           }`}>
-            {category?.status === 'active' ? 'Activo' : 'Inactivo'}
+            {setting?.status === 'active' ? 'Activo' : 'Inactivo'}
           </span>
         </div>
 
         {/* Información */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
+          
+          <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
             <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
-              <Award size={16} />
-              <span>Disciplina</span>
+              <span>Access Token</span>
             </h4>
-            <p className="text-gray-900 font-medium">{category?.discipline_name}</p>
+            <div className="flex items-center space-x-4">
+              <div className={`px-3 py-2 rounded-lg text-center flex-1 bg-gray-100 text-gray-800 border border-gray-200'}`}>
+                <p className="text-sm font-medium">{setting?.access_token}</p>
+              </div>
+            </div>
+          
+            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
+              <span>Public Key</span>
+            </h4>
+            <div className="flex items-center space-x-4">
+              <div className={`px-3 py-2 rounded-lg text-center flex-1 bg-gray-100 text-gray-800 border border-gray-200'}`}>
+                <p className="text-sm font-medium">
+                  {setting?.public_key}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
-              <BarChart3 size={16} />
-              <span>Nivel</span>
-            </h4>
-            <span className={`px-2 py-1 rounded-full text-sm font-medium ${getLevelColor(category?.level)}`}>
-              {getLevelText(category?.level)}
-            </span>
-          </div>
 
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
             <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
-              <Calendar size={16} />
-              <span>Rango de Edad</span>
             </h4>
-            <p className="text-gray-900 font-medium">
-              {category?.min_age || '?'} - {category?.max_age || '?'} años
-            </p>
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-700 mb-2 flex items-center space-x-2">
-              <Hash size={16} />
-              <span>ID</span>
-            </h4>
-            <p className="text-gray-900 font-medium">#{category?.id}</p>
+            <div className="flex items-center space-x-4">
+              <div className={`px-3 py-2 rounded-lg text-center flex-1 ${
+                setting?.status === 'active' 
+                  ? 'bg-green-100 text-green-800 border border-green-200' 
+                  : 'bg-red-100 text-red-800 border border-red-200'
+              }`}>
+                <p className="text-sm font-medium">
+                  {setting?.status === 'active' ? 'Disponible para transacciones' : 'No disponible temporalmente'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Información adicional */}
-        {category?.created_at && (
+        {/* Información del sistema */}
+        {setting?.created_at && (
           <div className="bg-blue-50 p-4 rounded-lg">
             <h4 className="font-medium text-blue-700 mb-2">Información del Sistema</h4>
-            <p className="text-sm text-blue-800">
-              Categoría creada el {new Date(category.created_at).toLocaleDateString('es-ES')}
-            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <p className="text-sm text-blue-800">
+                <span className="font-medium">Creada:</span> {new Date(setting.created_at).toLocaleDateString('es-ES')}
+              </p>
+              {setting?.updated_at && (
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Actualizada:</span> {new Date(setting.updated_at).toLocaleDateString('es-ES')}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -1004,4 +994,4 @@ const ViewCategoryModal = ({ isOpen, onClose, category }) => {
   );
 };
 
-export default ClubCategoriesManagement;
+export default ClubSettingsManagement;

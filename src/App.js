@@ -1,82 +1,108 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ClubAuthProvider, useClubAuth } from './context/ClubAuthContext';
+import { MemberAuthProvider, useMemberAuth } from './context/MemberAuthContext';
+
 import Welcome from './components/Common/Welcome';
 import Login from './components/Auth/Login';
 import ClubLogin from './components/ClubAuth/ClubLogin';
+import MemberLogin from './components/MemberAuth/MemberLogin';
+
 import Dashboard from './components/Dashboard/Dashboard';
 import ClubDashboard from './components/ClubDashboard/Dashboard';
+import MemberDashboard from './components/MemberDashboard/Dashboard';
 
-// Componente seguro para usar useClubAuth
-const ClubAppContent = () => {
-  try {
-    const { user, loading } = useClubAuth();
+import PaymentSuccess from './components/pages/PaymentSuccess';
+import PaymentFailure from './components/pages/PaymentFailure';
+import PaymentPending from './components/pages/PaymentPending';
 
-    if (loading) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Cargando...</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (user) {
-      return <ClubDashboard />;
-    }
-
-    return <ClubLogin onToggleView={() => window.location.reload()} />;
-  } catch (error) {
-    // Fallback si hay error con el contexto
-    return <ClubLogin onToggleView={() => window.location.reload()} />;
-  }
-};
-
-// Wrapper para ClubApp
-const ClubApp = () => (
-  <ClubAuthProvider>
-    <ClubAppContent />
-  </ClubAuthProvider>
+/* 🔐 Loader reutilizable */
+const Loader = ({ text }) => (
+  <div className="min-h-screen flex items-center justify-center">
+    <p>{text}</p>
+  </div>
 );
 
-// Componente principal
-const MainApp = () => {
+/* 🔐 Rutas protegidas – Usuario */
+const ProtectedUserRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  const [showLogin, setShowLogin] = useState(false);
-  const [showClubLogin, setShowClubLogin] = useState(false);
-
-  if (loading) {
-    return <div>Cargando...</div>;
-  }
-
-  if (user) {
-    return <Dashboard />;
-  }
-
-  if (showClubLogin) {
-    return <ClubApp />;
-  }
-
-  if (showLogin) {
-    return <Login onToggleView={() => setShowLogin(false)} />;
-  }
-
-  return <Welcome onShowLogin={() => setShowLogin(true)} onShowClubLogin={() => setShowClubLogin(true)} />;
+  if (loading) return <Loader text="Cargando..." />;
+  return user ? children : <Navigate to="/" replace />;
 };
 
-// App principal
+/* 🔐 Rutas protegidas – Club */
+const ProtectedClubRoute = ({ children }) => {
+  const { user, loading } = useClubAuth();
+  if (loading) return <Loader text="Cargando club..." />;
+  return user ? children : <Navigate to="/club/login" replace />;
+};
+
+/* 🔐 Rutas protegidas – Miembro */
+const ProtectedMemberRoute = ({ children }) => {
+  const { user, loading } = useMemberAuth();
+  if (loading) return <Loader text="Cargando miembro..." />;
+  return user ? children : <Navigate to="/member/login" replace />;
+};
+
+/* 🌍 App */
 const App = () => {
-  const clubToken = localStorage.getItem('club_token');
-
-  if (clubToken) {
-    return <ClubApp />;
-  }
-
   return (
     <AuthProvider>
-      <MainApp />
+      <ClubAuthProvider>
+        <MemberAuthProvider>
+          <Router>
+            <Routes>
+
+              {/* Públicas */}
+              <Route path="/" element={<Welcome />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/club/login" element={<ClubLogin />} />
+              <Route path="/member/login" element={<MemberLogin />} />
+
+              {/* Usuario */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedUserRoute>
+                    <Dashboard />
+                  </ProtectedUserRoute>
+                }
+              />
+
+              {/* Club */}
+              <Route
+                path="/club/dashboard"
+                element={
+                  <ProtectedClubRoute>
+                    <ClubDashboard />
+                  </ProtectedClubRoute>
+                }
+              />
+
+              {/* Miembro */}
+              <Route
+                path="/member/dashboard"
+                element={
+                  <ProtectedMemberRoute>
+                    <MemberDashboard />
+                  </ProtectedMemberRoute>
+                }
+              />
+
+              {/* Pagos (públicos) */}
+              <Route path="/payment/success" element={<PaymentSuccess />} />
+              <Route path="/payment/failure" element={<PaymentFailure />} />
+              <Route path="/payment/pending" element={<PaymentPending />} />
+
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+
+            </Routes>
+          </Router>
+        </MemberAuthProvider>
+      </ClubAuthProvider>
     </AuthProvider>
   );
 };

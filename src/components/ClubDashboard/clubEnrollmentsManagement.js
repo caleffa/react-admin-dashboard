@@ -334,7 +334,7 @@ const ClubEnrollmentsManagement = ({ openModal, closeModal }) => {
           data={enrollments}
           columns={[
             { 
-              key: 'member', 
+              key: 'member_name', 
               label: 'Socio',
               render: (_, item) => (
                 <div className="flex items-center">

@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://vps-5479958-x.dattaweb.com/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://bitweb.online/api';
 
 const getAuthToken = () => {
   return localStorage.getItem('token');
@@ -7,8 +7,9 @@ const getAuthToken = () => {
 const authFetch = async (url, options = {}) => {
   // Intentar obtener token del club primero, luego el token principal
   const clubToken = localStorage.getItem('club_token');
+  const memberToken = localStorage.getItem('member_token');
   const mainToken = localStorage.getItem('token');
-  const token = clubToken || mainToken;
+  const token = clubToken || memberToken || mainToken;
   
   const headers = {
     'Content-Type': 'application/json',
@@ -67,13 +68,6 @@ login: async (email, password) => {
       body: JSON.stringify({ email, password }),
     });
 
-    /*console.log('📡 Respuesta HTTP:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers: Object.fromEntries(response.headers.entries())
-    });*/
-
     if (!response.ok) {
       // Si es error 401, 404, etc.
       const errorText = await response.text();
@@ -92,19 +86,14 @@ login: async (email, password) => {
     }
 
     const result = await response.json();
-    /*console.log('✅ Login exitoso - Datos recibidos:', {
-      hasToken: !!result.token,
-      hasUser: !!result.user,
-      userData: result.user
-    });*/
     
     return result;
 
-  } catch (error) {
-    //console.error('💥 Error en fetch:', error);
-    throw error;
-  }
-},
+    } catch (error) {
+      //console.error('💥 Error en fetch:', error);
+      throw error;
+    }
+  },
 
   // Obtener todos los usuarios
   getAllUsers: async () => {
@@ -141,7 +130,6 @@ login: async (email, password) => {
       method: 'DELETE',
     });
   },
-
 
   // Crear usuario con parámetros fijos
   createUser: async (userData) => {
@@ -353,6 +341,16 @@ export const clubMemberService = {
   // Obtener socio por ID
   getMemberById: async (id) => {
     return authFetch(`/club/members/${id}`);
+  },
+
+  // Obtener todos los datos del socio por ID
+  getMemberData: async (id) => {
+    return authFetch(`/club/members/member/${id}`);
+  },
+
+  // Obtener todos los datos del socio por ID
+  getMemberEnrollments: async (id) => {
+    return authFetch(`/club/members/memberEnrollments/${id}`);
   },
 
   // Crear socio
@@ -948,6 +946,313 @@ export const clubFeeService = {
   // Eliminar categories
   deleteFee: async (id) => {
     return authFetch(`/club/fees/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+
+
+///// Payment Methods /////
+
+export const clubPaymentMethodService = {
+  // Obtener todas 
+  getAllPaymentMethods: async () => {
+    const response = await authFetch('/club/paymentmethods');
+    return response.results || [];
+  },
+
+  // Obtener  por club ID
+  getPaymentMethodsByClubId: async (clubId) => {
+    const response = await authFetch(`/club/paymentmethods/club/${clubId}`);
+    return response.results || [];
+  },
+
+  // Obtener  por ID
+  getPaymentMethodById: async (id) => {
+    return authFetch(`/club/paymentmethods/${id}`);
+  },
+
+  // Crear 
+  createPaymentMethod: async (paymentmethodData) => {
+    try {
+      const response = await authFetch('/club/paymentmethods', {
+        method: 'POST',
+        body: JSON.stringify(paymentmethodData),
+      });
+
+      return response;
+    } catch (error) {
+      // Mejorar el manejo de errores para mostrar el mensaje específico
+      console.error('Error en createMember:', error);
+      
+      // Si el error ya tiene un mensaje específico, lanzarlo tal cual
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      // Si es un error genérico, intentar obtener más detalles
+      throw new Error(error.message || 'Error al crear socio');
+    }
+  },
+
+  updatePaymentMethod: async (id, paymentmethodData) => {
+    try {
+      const response = await authFetch(`/club/paymentmethods/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(paymentmethodData),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Error en updatePaymentMethod:', error);
+      
+      // Preservar el mensaje específico de la API
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      throw new Error(error.message || 'Error al actualizar socio');
+    }
+  },
+
+  // Actualizar 
+  updatePaymentMethod: async (id, paymentmethodData) => {
+    return authFetch(`/club/paymentmethods/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentmethodData),
+    });
+  },
+
+  // Eliminar 
+  deletePaymentMethod: async (id) => {
+    return authFetch(`/club/paymentmethods/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+////                     MEMEBERS PANEL                                           ////
+//////////////////////////////////////////////////////////////////////////////////////
+
+export const memberAuthService = {
+  // Login específico para miembros
+  login: async (email, password) => {
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/club/members/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Credenciales inválidas');
+      }
+
+      const result = await response.json();
+        //console.log('✅ Login de club exitoso:', result);
+      return result;
+    } catch (error) {
+        console.error('💥 Error en memberAuthService.login:', error);
+      throw error;
+    }
+  },
+};
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+////                                   SEND EMAILS                                ////
+//////////////////////////////////////////////////////////////////////////////////////
+
+export const sendMailService = {
+  
+  sendMail: async ( namesender, to, subject, message ) => {
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/mails/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ namesender, to, subject, message }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al enviar mail');
+      }
+
+      const result = await response.json();
+        console.log('✅ Envío exitoso:', result);
+      return result;
+    } catch (error) {
+        console.error('💥 Error en sendMailService.sendMail:', error);
+      throw error;
+    }
+  },
+};
+
+
+///// Payment MP /////
+
+export const paymentService = {
+  // Obtener todas 
+  getAllPayments: async () => {
+    const response = await authFetch('/mp/payments');
+    return response.results || [];
+  },
+
+  // Obtener  por club ID
+  getPaymentsByClubId: async (clubId) => {
+    const response = await authFetch(`/mp/payments/club/${clubId}`);
+    return response.results || [];
+  },
+
+  // Obtener  por ID
+  getPaymentById: async (id) => {
+    return authFetch(`/mp/payments/${id}`);
+  },
+
+  // Crear 
+  createPayment: async (paymentData) => {
+    try {
+      const response = await authFetch('/mp/payments', {
+        method: 'POST',
+        body: JSON.stringify(paymentData),
+      });
+
+      return response;
+    } catch (error) {
+      // Mejorar el manejo de errores para mostrar el mensaje específico
+      console.error('Error en createPayment:', error);
+      
+      // Si el error ya tiene un mensaje específico, lanzarlo tal cual
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      // Si es un error genérico, intentar obtener más detalles
+      throw new Error(error.message || 'Error al crear pago');
+    }
+  },
+
+  /*updatePaymentMethod: async (id, paymentmethodData) => {
+    try {
+      const response = await authFetch(`/club/paymentmethods/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(paymentmethodData),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Error en updatePaymentMethod:', error);
+      
+      // Preservar el mensaje específico de la API
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      throw new Error(error.message || 'Error al actualizar socio');
+    }
+  },*/
+
+  // Actualizar 
+  /*updatePaymentMethod: async (id, paymentmethodData) => {
+    return authFetch(`/club/paymentmethods/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentmethodData),
+    });
+  },*/
+
+  // Eliminar 
+  deletePayment: async (id) => {
+    return authFetch(`/mp/payments/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+
+
+///// Settings /////
+
+export const clubSettingService = {
+  // Obtener todas 
+  getAllSettings: async () => {
+    const response = await authFetch('/club/settings');
+    return response.results || [];
+  },
+
+  // Obtener  por club ID
+  getSettingsByClubId: async (clubId) => {
+    const response = await authFetch(`/club/settings/club/${clubId}`);
+    return response.results || [];
+  },
+
+  // Obtener activa por club ID
+  getActiveSettingByClubId: async (clubId) => {
+    const response = await authFetch(`/club/settings/club/active/${clubId}`);
+    return response.results || [];
+  },
+
+  // Obtener  por ID
+  getSettingById: async (id) => {
+    return authFetch(`/settings/${id}`);
+  },
+
+  // Crear 
+  createSetting: async (settingData) => {
+    try {
+      const response = await authFetch('/club/settings', {
+        method: 'POST',
+        body: JSON.stringify(settingData),
+      });
+
+      return response;
+    } catch (error) {
+      // Mejorar el manejo de errores para mostrar el mensaje específico
+      console.error('Error en createSetting:', error);
+      
+      // Si el error ya tiene un mensaje específico, lanzarlo tal cual
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      // Si es un error genérico, intentar obtener más detalles
+      throw new Error(error.message || 'Error al crear configuración');
+    }
+  },
+
+  updateSetting: async (id, settingData) => {
+    try {
+      const response = await authFetch(`/club/settings/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(settingData),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Error en updateSetting:', error);
+      
+      // Preservar el mensaje específico de la API
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      throw new Error(error.message || 'Error al actualizar configuración');
+    }
+  },
+
+  // Eliminar 
+  deleteSetting: async (id) => {
+    return authFetch(`/club/settings/${id}`, {
       method: 'DELETE',
     });
   },

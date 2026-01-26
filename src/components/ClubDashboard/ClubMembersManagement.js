@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { clubMemberService } from '../../services/api';
+import { clubMemberService, sendMailService } from '../../services/api';
 import { useClubAuth } from '../../context/ClubAuthContext';
 import { 
   UserPlus, 
@@ -8,7 +8,7 @@ import {
   Mail,
   Phone,
   MapPin,
-  Calendar,
+  Calendar,Target,Palette,VenusAndMars,
   Heart,
   Shield,
   CheckCircle,
@@ -50,7 +50,16 @@ const ClubMembersManagement = ({ openModal, closeModal }) => {
       
       // Cargar socios del mismo club
       const membersData = await clubMemberService.getMembersByClubId(currentMember.club_id);
-      setMembers(membersData);
+      
+      // Creo el campo name para la búsqueda
+      const membersWithVirtualFields = membersData.map(member => ({
+        ...member,
+        name: `${member.first_name} ${member.last_name}`.toLowerCase()
+      }));
+      
+      setMembers(membersWithVirtualFields);
+
+      //setMembers(membersData);
 
     } catch (err) {
       setError('Error al cargar los socios: ' + err.message);
@@ -72,6 +81,18 @@ const ClubMembersManagement = ({ openModal, closeModal }) => {
       await clubMemberService.createMember(memberDataWithClub);
       setSuccessMessage('Socio creado exitosamente');
       setIsCreateModalOpen(false);
+      
+      // Enviar correo de bienvenida
+      if (newMember.email) {
+        await sendMemberEmail('create', {
+          ...newMember,
+          first_name: memberData.first_name,
+          last_name: memberData.last_name,
+          document_number: memberData.document_number,
+          status: memberData.status
+        });
+      }
+      
       loadMembers();
       
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -90,29 +111,135 @@ const ClubMembersManagement = ({ openModal, closeModal }) => {
     setIsViewModalOpen(true);
   };
 
-  const handleUpdate = async (memberData) => {
-    try {
-      setError('');
-      
-      const memberDataWithClub = {
-        ...memberData,
-        club_id: currentMember.club_id
-      };
-      
-      await clubMemberService.updateMember(editingMember.id, memberDataWithClub);
-      setIsEditModalOpen(false);
-      setEditingMember(null);
-      setSuccessMessage('Socio actualizado exitosamente');
-      loadMembers();
-      
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      setError('Error al actualizar el socio: ' + err.message);
-      console.error('Error updating member:', err);
+const handleUpdate = async (memberData) => {
+  try {
+    setError('');
+    
+    const memberDataWithClub = {
+      ...memberData,
+      club_id: currentMember.club_id
+    };
+    
+    // Guardar datos antiguos para comparar
+    const oldMemberData = { ...editingMember };
+    
+    await clubMemberService.updateMember(editingMember.id, memberDataWithClub);
+    setIsEditModalOpen(false);
+    setEditingMember(null);
+    setSuccessMessage('Socio actualizado exitosamente');
+    
+    // Enviar correo de actualización
+    if (editingMember.email) {
+      await sendMemberEmail('update', {
+        ...editingMember,
+        ...memberData // Datos nuevos
+      }, oldMemberData); // Datos antiguos
     }
-  };
+    
+    loadMembers();
+    
+    setTimeout(() => setSuccessMessage(''), 3000);
+  } catch (err) {
+    setError('Error al actualizar el socio: ' + err.message);
+    console.error('Error updating member:', err);
+  }
+};
 
-  const handleDelete = async (memberId) => {
+// Función para enviar correo
+const sendMemberEmail = async (action, member, oldData = null) => {
+  try {
+    let subject = '';
+    let message = '';
+    const clubName = currentMember.club_name || 'Tu Club';
+    
+    switch(action) {
+      case 'create':
+        subject = `¡Bienvenido/a a ${clubName}!`;
+        message = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #16a34a;">¡Bienvenido/a a ${clubName}!</h1>
+            <p>Estimado/a <strong>${member.first_name} ${member.last_name}</strong>,</p>
+            <p>Te damos la más cordial bienvenida a nuestro club. Has sido registrado/a como socio/a.</p>
+            <p><strong>Tus datos de registro:</strong></p>
+            <ul>
+              <li><strong>Nombre:</strong> ${member.first_name} ${member.last_name}</li>
+              <li><strong>Documento:</strong> ${member.document_number}</li>
+              <li><strong>Estado:</strong> ${member.status === 'active' ? 'Activo' : 'Inactivo'}</li>
+              ${member.email ? `<li><strong>Email:</strong> ${member.email}</li>` : ''}
+            </ul>
+            <p>Para cualquier consulta, no dudes en contactarnos.</p>
+            <p>Saludos cordiales,<br>El equipo de ${clubName}</p>
+          </div>
+        `;
+        break;
+        
+      case 'update':
+        subject = `Actualización de tus datos en ${clubName}`;
+        message = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #2563eb;">Actualización de datos</h1>
+            <p>Estimado/a <strong>${member.first_name} ${member.last_name}</strong>,</p>
+            <p>Tus datos en ${clubName} han sido actualizados.</p>
+            ${oldData ? `
+            <p><strong>Cambios realizados:</strong></p>
+            <ul>
+              ${oldData.first_name !== member.first_name ? `<li><strong>Nombre anterior:</strong> ${oldData.first_name}</li>` : ''}
+              ${oldData.last_name !== member.last_name ? `<li><strong>Apellido anterior:</strong> ${oldData.last_name}</li>` : ''}
+              ${oldData.email !== member.email ? `<li><strong>Email anterior:</strong> ${oldData.email || 'No especificado'}</li>` : ''}
+              ${oldData.status !== member.status ? `<li><strong>Estado anterior:</strong> ${oldData.status === 'active' ? 'Activo' : 'Inactivo'}</li>` : ''}
+            </ul>
+            ` : '<p>Se han actualizado tus datos personales.</p>'}
+            <p><strong>Tus datos actuales:</strong></p>
+            <ul>
+              <li><strong>Nombre:</strong> ${member.first_name} ${member.last_name}</li>
+              <li><strong>Documento:</strong> ${member.document_number}</li>
+              <li><strong>Estado:</strong> ${member.status === 'active' ? 'Activo' : 'Inactivo'}</li>
+              ${member.email ? `<li><strong>Email:</strong> ${member.email}</li>` : ''}
+            </ul>
+            <p>Si no reconoces estos cambios, por favor contacta con nosotros.</p>
+            <p>Saludos cordiales,<br>El equipo de ${clubName}</p>
+          </div>
+        `;
+        break;
+        
+      case 'delete':
+        subject = `Baja del sistema - ${clubName}`;
+        message = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #dc2626;">Baja del sistema</h1>
+            <p>Estimado/a <strong>${member.first_name} ${member.last_name}</strong>,</p>
+            <p>Lamentamos informarte que tu cuenta en ${clubName} ha sido dada de baja del sistema.</p>
+            <p><strong>Datos de la cuenta eliminada:</strong></p>
+            <ul>
+              <li><strong>Nombre:</strong> ${member.first_name} ${member.last_name}</li>
+              <li><strong>Documento:</strong> ${member.document_number}</li>
+              <li><strong>Email:</strong> ${member.email || 'No especificado'}</li>
+            </ul>
+            <p>Si crees que esto es un error o necesitas más información, por favor contacta con nosotros.</p>
+            <p>Saludos cordiales,<br>El equipo de ${clubName}</p>
+          </div>
+        `;
+        break;
+    }
+    
+    console.log(clubName+member.email+subject+message)
+    // Enviar el correo
+    await sendMailService.sendMail(
+      clubName,
+      member.email, // Asegúrate de que el miembro tenga email
+      subject,
+      message
+    );
+    
+    console.log(`✅ Correo enviado para acción: ${action}`);
+  } catch (emailError) {
+    console.error(`⚠️ Error al enviar correo (${action}):`, emailError);
+    // No lanzar el error para no interrumpir el flujo principal
+  }
+};
+
+
+    const handleDelete = async (memberId) => {
     // Prevenir que el usuario actual se elimine a sí mismo
     if (memberId === currentMember.id) {
       setError('No puedes eliminarte a ti mismo');
@@ -220,6 +347,58 @@ const ClubMembersManagement = ({ openModal, closeModal }) => {
           <span>{successMessage}</span>
         </div>
       )}
+
+      {/* Resumen rápido */}
+      {members.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Total Socios</p>
+                <p className="text-2xl font-bold text-gray-800">{members.length}</p>
+              </div>
+              <Target className="text-green-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Activos</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {members.filter(d => d.status === 'active').length}
+                </p>
+              </div>
+              <CheckCircle className="text-green-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Inactivos</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {members.filter(d => d.status === 'inactive').length}
+                </p>
+              </div>
+              <XCircle className="text-red-500" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Género</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {[...new Set(members.map(d => d.gender))].length}
+                </p>
+              </div>
+              <VenusAndMars className="text-purple-500" size={24} />
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-center space-x-2">

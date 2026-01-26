@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const Login = ({ onToggleView }) => {
+const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Validación simple
     if (!email || !password) {
       setError('Por favor completa todos los campos');
       setLoading(false);
@@ -22,12 +23,15 @@ const Login = ({ onToggleView }) => {
     }
 
     const result = await login(email, password);
-    
-    if (!result.success) {
-      setError(result.error || 'Error al iniciar sesión');
+
+    if (!result?.success) {
+      setError(result?.error || 'Error al iniciar sesión');
+      setLoading(false);
+      return;
     }
-    
-    setLoading(false);
+
+    // ✅ LOGIN EXITOSO → DASHBOARD
+    navigate('/dashboard', { replace: true });
   };
 
   return (
@@ -46,39 +50,35 @@ const Login = ({ onToggleView }) => {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Correo Electrónico
             </label>
             <input
-              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder="usuario@empresa.com"
-              required
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Contraseña
             </label>
             <input
-              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               placeholder="••••••••"
-              required
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg disabled:opacity-50"
           >
             {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
@@ -86,17 +86,15 @@ const Login = ({ onToggleView }) => {
 
         <div className="mt-6 text-center">
           <button
-            onClick={onToggleView}
+            onClick={() => navigate('/')}
             className="text-blue-500 hover:text-blue-600 font-medium"
           >
             ← Volver a la página de bienvenida
           </button>
         </div>
 
-        <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-600 text-center">
-            <strong>Demo:</strong> Usa cualquier email y contraseña para probar
-          </p>
+        <div className="mt-8 p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-600">
+          <strong>Demo:</strong> Usa cualquier email y contraseña para probar
         </div>
       </div>
     </div>

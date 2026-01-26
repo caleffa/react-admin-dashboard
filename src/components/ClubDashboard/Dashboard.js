@@ -9,6 +9,8 @@ import ClubEnrollmentsManagement from './clubEnrollmentsManagement';
 import ClubSchedulesManagement from './ClubSchedulesManagement';
 import ClubFeeTypesManagement from './ClubFeeTypesManagement';
 import ClubFeesManagement from './ClubFeesManagement';
+import ClubSettingsManagement from './ClubSettingsManagement';
+import ClubPaymentMethodsManagement from './ClubPaymentMethodsManagement';
 import ClubProfile from './ClubProfile';
 import { useClubAuth } from '../../context/ClubAuthContext';
 import { 
@@ -18,16 +20,9 @@ import {
   Users, 
   User, 
   BookOpen, 
-  Tag, 
-  Calendar, 
-  CreditCard,
-  DollarSign,
-  FileText,
   BarChart3,
-  ChevronRight,
-  Eye,
-  Edit,
-  Trash2
+  ChevronRight
+
 } from 'lucide-react';
 
 // Importa los nuevos componentes
@@ -110,6 +105,10 @@ const ClubDashboard = () => {
         return <ClubFeeTypesManagement openModal={openModal} closeModal={closeModal} />;
       case 'fees':
         return <ClubFeesManagement openModal={openModal} closeModal={closeModal} />;
+      case 'paymentmethods':
+        return <ClubPaymentMethodsManagement openModal={openModal} closeModal={closeModal} />;
+      case 'settings':
+        return <ClubSettingsManagement openModal={openModal} closeModal={closeModal} />;
       case 'profile':
         return <ClubProfile />;
 
@@ -117,7 +116,7 @@ const ClubDashboard = () => {
         return (
           <div className="p-4 md:p-6">
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Dashboard del Club</h2>
+              <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
               <p className="text-gray-600 mt-1">Hola {user?.first_name}, bienvenido al panel de {user?.club_name}</p>
             </div>
             
@@ -146,7 +145,7 @@ const ClubDashboard = () => {
               {(user?.role === 'club_admin' || user?.role === 'super_admin') && (
                 <DashboardCard
                   title="Gestión de Usuarios"
-                  description="Administra los usuarios de tu club"
+                  description="Administra los usuarios "
                   icon={<Users className="w-6 h-6" />}
                   color="blue"
                   onClick={() => handleSectionChange('users')}
@@ -155,8 +154,8 @@ const ClubDashboard = () => {
 
               {/* Información del club */}
               <DashboardCard
-                title="Información del Club"
-                description="Consulta la información de tu club"
+                title="Información"
+                description="Consulta la información"
                 icon={<Home className="w-6 h-6" />}
                 color="green"
                 onClick={() => handleSectionChange('profile')}
@@ -166,7 +165,7 @@ const ClubDashboard = () => {
               {(user?.role === 'club_admin' || user?.role === 'super_admin') && (
                 <DashboardCard
                   title="Gestión de Socios"
-                  description="Administra los socios de tu club"
+                  description="Administra los socios"
                   icon={<User className="w-6 h-6" />}
                   color="purple"
                   onClick={() => handleSectionChange('members')}
@@ -177,7 +176,7 @@ const ClubDashboard = () => {
               {(user?.role === 'club_admin' || user?.role === 'super_admin') && (
                 <DashboardCard
                   title="Gestión de Disciplinas"
-                  description="Administra las disciplinas de tu club"
+                  description="Administra las disciplinas "
                   icon={<BookOpen className="w-6 h-6" />}
                   color="orange"
                   onClick={() => handleSectionChange('disciplines')}
@@ -224,23 +223,42 @@ const ClubDashboard = () => {
       {/* Overlay para móvil */}
       {sidebarOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden w-full"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <div className="flex pt-16 md:pt-0">
         {/* Sidebar responsivo */}
-        <div 
-          ref={sidebarRef}
-          className={`
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-            fixed md:relative inset-y-0 left-0 z-40
-            w-64 md:w-64
-            transition-transform duration-300 ease-in-out
-            h-screen
-          `}
-        >
+          <div 
+            ref={sidebarRef}
+            className={`
+              ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+              fixed md:sticky md:top-0
+              left-0 z-40
+              w-64
+              transition-transform duration-300 ease-in-out
+              h-screen
+              overflow-y-auto
+              bg-white
+              md:shadow-none
+              shadow-lg
+            `}
+            style={{
+              height: '100vh',
+              top: '0',
+  // Esto previene que se achique cuando la página se hace más pequeña
+  width:'256px',
+  minWidth: '256px'
+  //,
+  //flexShrink: '0',
+  //boxSizing: 'border-box'
+
+            }}
+
+
+
+          >
           <ClubSidebar 
             activeSection={activeSection} 
             setActiveSection={handleSectionChange}

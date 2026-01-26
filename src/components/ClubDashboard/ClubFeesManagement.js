@@ -20,7 +20,8 @@ import {
   Clock,
   TrendingUp,
   Receipt,
-  Shield
+  Shield,
+  Filter
 } from 'lucide-react';
 
 // Importar los componentes responsive
@@ -29,6 +30,7 @@ import ResponsiveDataTable from '../ClubDashboard/ResponsiveDataTable';
 
 const ClubFeesManagement = ({ openModal, closeModal }) => {
   const [fees, setFees] = useState([]);
+  const [allFees, setAllFees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -42,11 +44,26 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
   const [members, setMembers] = useState([]);
   const [feetypes, setFeeTypes] = useState([]);
   
+  // Estado para el filtro
+  const [statusFilter, setStatusFilter] = useState('pending');
+  
   const { user: currentUser } = useClubAuth();
 
   useEffect(() => {
     loadFees();
   }, []);
+
+  // Efecto para aplicar el filtro cuando cambia statusFilter
+  useEffect(() => {
+    if (allFees.length > 0) {
+      if (statusFilter === 'all') {
+        setFees(allFees);
+      } else {
+        const filteredFees = allFees.filter(fee => fee.status === statusFilter);
+        setFees(filteredFees);
+      }
+    }
+  }, [statusFilter, allFees]);
 
   const loadFees = async () => {
     try {
@@ -65,13 +82,33 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
 
       // Cargar cuotas del mismo club
       const feesData = await clubFeeService.getFeesByClubId(currentUser.club_id);
-      setFees(feesData);
+      setAllFees(feesData);
+      
+      // Filtrar por pendientes por defecto
+      const pendingFees = feesData.filter(fee => fee.status === 'pending');
+      setFees(pendingFees);
 
     } catch (err) {
       setError('Error al cargar las cuotas: ' + err.message);
       console.error('Error loading fees:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función para manejar el cambio de filtro
+  const handleFilterChange = (e) => {
+    setStatusFilter(e.target.value);
+  };
+
+  // Función para obtener el texto del estado
+  const getStatusText = (status) => {
+    switch (status) {
+      case 'paid': return 'Pagado';
+      case 'pending': return 'Pendiente';
+      case 'overdue': return 'Vencido';
+      case 'cancelled': return 'Cancelado';
+      default: return 'Desconocido';
     }
   };
 
@@ -217,7 +254,12 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
         
         <div className="flex flex-wrap gap-2">
           <div className="bg-gray-100 px-3 py-2 rounded-lg text-sm text-gray-600">
-            Total: <span className="font-bold">{fees.length}</span> cuotas
+            Mostrando: <span className="font-bold">{fees.length}</span> cuotas
+            {statusFilter !== 'all' && (
+              <span className="ml-2">
+                ({allFees.filter(f => f.status === statusFilter).length} de {allFees.length})
+              </span>
+            )}
           </div>
           
           <button
@@ -254,14 +296,14 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
       )}
 
       {/* Resumen estadístico */}
-      {fees.length > 0 && (
+      {allFees.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Total Recaudado</p>
                 <p className="text-2xl font-bold text-green-600">
-                  ${fees
+                  ${allFees
                     .filter(f => f.status === 'paid')
                     .reduce((sum, fee) => sum + parseFloat(fee.amount || 0), 0)
                     .toLocaleString('es-AR')}
@@ -276,7 +318,7 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
               <div>
                 <p className="text-sm text-gray-500">Cuotas Pagadas</p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {fees.filter(f => f.status === 'paid').length}
+                  {allFees.filter(f => f.status === 'paid').length}
                 </p>
               </div>
               <CheckCircle className="text-blue-500" size={24} />
@@ -288,7 +330,7 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
               <div>
                 <p className="text-sm text-gray-500">Cuotas Pendientes</p>
                 <p className="text-2xl font-bold text-orange-600">
-                  {fees.filter(f => f.status === 'pending').length}
+                  {allFees.filter(f => f.status === 'pending').length}
                 </p>
               </div>
               <Clock className="text-orange-500" size={24} />
@@ -300,7 +342,7 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
               <div>
                 <p className="text-sm text-gray-500">Cuotas Vencidas</p>
                 <p className="text-2xl font-bold text-red-600">
-                  {fees.filter(f => f.status === 'overdue').length}
+                  {allFees.filter(f => f.status === 'overdue').length}
                 </p>
               </div>
               <AlertCircle className="text-red-500" size={24} />
@@ -315,14 +357,16 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
           <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CreditCard size={32} className="text-gray-400" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">No hay cuotas registradas</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+            {statusFilter === 'all' ? 'No hay cuotas registradas' : `No hay cuotas ${getStatusText(statusFilter).toLowerCase()}`}
+          </h3>
           <p className="text-gray-600 mb-6">Gestiona las cuotas de los socios de tu club</p>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors inline-flex items-center space-x-2"
           >
             <Plus size={18} />
-            <span>Crear Primera Cuota</span>
+            <span>Crear Nueva Cuota</span>
           </button>
         </div>
       ) : (
@@ -390,10 +434,7 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
                     ? 'bg-red-100 text-red-800'
                     : 'bg-gray-100 text-gray-800'
                 }`}>
-                  {value === 'paid' ? 'Pagado' : 
-                   value === 'pending' ? 'Pendiente' : 
-                   value === 'overdue' ? 'Vencido' : 
-                   value === 'cancelled' ? 'Cancelado' : 'Desconocido'}
+                  {getStatusText(value)}
                 </span>
               )
             }
@@ -401,6 +442,28 @@ const ClubFeesManagement = ({ openModal, closeModal }) => {
           itemsPerPage={10}
           searchable={true}
           downloadable={true}
+          customFilters={
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+              <div className="flex items-center space-x-2">
+                <Filter size={16} className="text-gray-500" />
+                <label htmlFor="statusFilter" className="text-sm text-gray-600 font-medium">
+                  Filtrar por estado:
+                </label>
+              </div>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={handleFilterChange}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+              >
+                <option value="all">Todas las cuotas</option>
+                <option value="pending">Pendientes</option>
+                <option value="paid">Pagadas</option>
+                <option value="overdue">Vencidas</option>
+                <option value="cancelled">Canceladas</option>
+              </select>
+            </div>
+          }
           actions={[
             {
               label: 'Ver',

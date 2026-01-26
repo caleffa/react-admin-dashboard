@@ -387,7 +387,7 @@ const ClubSchedulesManagement = ({ openModal, closeModal }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Horarios del Club</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Horarios</h2>
           <p className="text-gray-600 mt-1">Organiza las clases y horarios de las actividades</p>
         </div>
         
@@ -516,7 +516,9 @@ const ClubSchedulesManagement = ({ openModal, closeModal }) => {
               label: 'Disciplina',
               render: (_, item) => (
                 <div className="flex items-center">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold mr-3"
+                  style={{ backgroundColor: item?.color || '#8F3C2C' }}
+                  >
                     {item.discipline_name?.charAt(0).toUpperCase() || 'D'}
                   </div>
                   <div>
@@ -666,6 +668,7 @@ const CreateScheduleModal = ({ isOpen, onClose, onSave, teachers, disciplines, c
     ? categories.filter(c => c.discipline_id === parseInt(formData.discipline_id))
     : [];
 
+//    console.log(formData);
   const handleSubmit = async (e) => {
     e?.preventDefault();
     setLoading(true);
@@ -701,7 +704,7 @@ const CreateScheduleModal = ({ isOpen, onClose, onSave, teachers, disciplines, c
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     
     setFormData(prev => {
       const newData = {
@@ -721,7 +724,7 @@ const CreateScheduleModal = ({ isOpen, onClose, onSave, teachers, disciplines, c
     <ResponsiveModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Crear Nuevo Horario"
+      title="Crear Nuevo"
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -811,7 +814,7 @@ const CreateScheduleModal = ({ isOpen, onClose, onSave, teachers, disciplines, c
             </label>
             <select
               name="day_of_week"
-              value={formData.day_of_week}
+              value={formData.day_of_week || ''}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               required
@@ -1185,7 +1188,7 @@ const EditScheduleModal = ({ isOpen, onClose, schedule, onSave, teachers, catego
             ) : (
               <>
                 <Edit size={18} />
-                <span>Actualizar Horario</span>
+                <span>Actualizar</span>
               </>
             )}
           </button>
@@ -1207,7 +1210,10 @@ const ViewScheduleModal = ({ isOpen, onClose, schedule, formatTime, getDayName }
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold`}
+            style={{ backgroundColor: schedule?.color || '#8F3C2C' }}
+          >
+            
             {schedule?.discipline_name?.charAt(0).toUpperCase() || 'C'}
           </div>
           <div>
@@ -1260,7 +1266,19 @@ const ViewScheduleModal = ({ isOpen, onClose, schedule, formatTime, getDayName }
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Inscriptos:</span>
-                <span className="font-medium">{schedule?.enrolled_member || 0}</span>
+              <div className="relative">
+                <button 
+                  className="font-medium px-3 py-1 bg-green-100 hover:bg-gray-200 rounded-full transition-colors"
+                  onClick={() => console.log('Ver lista de miembros')}
+                >
+                  {schedule?.enrolled_member || 0}
+                </button>
+                
+                {/* Tooltip opcional */}
+                <div className="absolute hidden group-hover:block bg-black text-white text-xs p-2 rounded mt-1">
+                  Haz clic para ver detalles
+                </div>
+              </div>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Disponibles:</span>
