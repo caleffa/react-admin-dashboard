@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ClubAuthProvider, useClubAuth } from './context/ClubAuthContext';
 import { MemberAuthProvider, useMemberAuth } from './context/MemberAuthContext';
 
+import useIdleLogout from './hooks/useIdleLogout';
+
 import Welcome from './components/Common/Welcome';
 import Login from './components/Auth/Login';
 import ClubLogin from './components/ClubAuth/ClubLogin';
@@ -46,61 +48,82 @@ const ProtectedMemberRoute = ({ children }) => {
   return user ? children : <Navigate to="/member/login" replace />;
 };
 
+/* 🌍 Contenido principal */
+const AppContent = () => {
+  const { user, logout: userLogout } = useAuth();
+  const { user: clubUser, logout: clubLogout } = useClubAuth();
+  const { user: memberUser, logout: memberLogout } = useMemberAuth();
+
+  /* ⏱️ Logout automático por inactividad */
+  useIdleLogout({
+    timeout: 15 * 60 * 1000, // 15 minutos
+    onLogout: () => {
+      if (user) userLogout();
+      if (clubUser) clubLogout();
+      if (memberUser) memberLogout();
+    }
+  });
+
+  return (
+    <Router>
+      <Routes>
+
+        {/* Públicas */}
+        <Route path="/" element={<Welcome />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/club/login" element={<ClubLogin />} />
+        <Route path="/member/login" element={<MemberLogin />} />
+
+        {/* Usuario */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedUserRoute>
+              <Dashboard />
+            </ProtectedUserRoute>
+          }
+        />
+
+        {/* Club */}
+        <Route
+          path="/club/dashboard"
+          element={
+            <ProtectedClubRoute>
+              <ClubDashboard />
+            </ProtectedClubRoute>
+          }
+        />
+
+        {/* Miembro */}
+        <Route
+          path="/member/dashboard"
+          element={
+            <ProtectedMemberRoute>
+              <MemberDashboard />
+            </ProtectedMemberRoute>
+          }
+        />
+
+        {/* Pagos */}
+        <Route path="/payment/success" element={<PaymentSuccess />} />
+        <Route path="/payment/failure" element={<PaymentFailure />} />
+        <Route path="/payment/pending" element={<PaymentPending />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+
+      </Routes>
+    </Router>
+  );
+};
+
 /* 🌍 App */
 const App = () => {
   return (
     <AuthProvider>
       <ClubAuthProvider>
         <MemberAuthProvider>
-          <Router>
-            <Routes>
-
-              {/* Públicas */}
-              <Route path="/" element={<Welcome />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/club/login" element={<ClubLogin />} />
-              <Route path="/member/login" element={<MemberLogin />} />
-
-              {/* Usuario */}
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedUserRoute>
-                    <Dashboard />
-                  </ProtectedUserRoute>
-                }
-              />
-
-              {/* Club */}
-              <Route
-                path="/club/dashboard"
-                element={
-                  <ProtectedClubRoute>
-                    <ClubDashboard />
-                  </ProtectedClubRoute>
-                }
-              />
-
-              {/* Miembro */}
-              <Route
-                path="/member/dashboard"
-                element={
-                  <ProtectedMemberRoute>
-                    <MemberDashboard />
-                  </ProtectedMemberRoute>
-                }
-              />
-
-              {/* Pagos (públicos) */}
-              <Route path="/payment/success" element={<PaymentSuccess />} />
-              <Route path="/payment/failure" element={<PaymentFailure />} />
-              <Route path="/payment/pending" element={<PaymentPending />} />
-
-              {/* Fallback */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-
-            </Routes>
-          </Router>
+          <AppContent />
         </MemberAuthProvider>
       </ClubAuthProvider>
     </AuthProvider>
