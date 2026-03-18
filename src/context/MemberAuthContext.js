@@ -62,6 +62,14 @@ export const MemberAuthProvider = ({ children }) => {
     }
   };
 
+  const updateUser = (userData) => {
+    setUser((currentUser) => {
+      const nextUser = { ...(currentUser || {}), ...(userData || {}) };
+      localStorage.setItem('member_user', JSON.stringify(nextUser));
+      return nextUser;
+    });
+  };
+
   const logout = () => {
     //console.log('🚪 MemberAuthProvider - Cerrando sesión');
     localStorage.removeItem('member_token');
@@ -73,6 +81,7 @@ export const MemberAuthProvider = ({ children }) => {
     user,
     login,
     logout,
+    updateUser,
     loading
   };
 
