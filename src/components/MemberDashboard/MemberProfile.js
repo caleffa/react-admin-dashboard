@@ -158,26 +158,16 @@ const MemberProfile = () => {
       setError('');
       setSuccessMessage('');
 
-      const reader = new FileReader();
-      const imageDataUrl = await new Promise((resolve, reject) => {
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(new Error('No se pudo leer la imagen seleccionada.'));
-        reader.readAsDataURL(file);
-      });
-
-      const sanitizedFileName = file.name.replace(/\s+/g, '-').toLowerCase();
-      const imageReference = `${MEMBER_IMAGES_BASE_PATH}/${Date.now()}-${sanitizedFileName}`;
+      const uploadedImageUrl = await clubMemberService.uploadMemberImage(file, 'members/images');
 
       await clubMemberService.updateMember(user.id, {
         ...member,
-        image: imageDataUrl,
-        image_path: imageReference,
+        image: uploadedImageUrl,
       });
 
       const updatedMember = {
         ...member,
-        image: imageDataUrl,
-        image_path: imageReference,
+        image: uploadedImageUrl,
       };
 
       syncMemberState(updatedMember);
@@ -304,10 +294,10 @@ const MemberProfile = () => {
                     <ImageIcon size={16} /> Foto de perfil
                   </h4>
                   <p className="text-sm text-gray-600 mt-1">
-                    Subí una imagen JPG, PNG, WEBP o GIF de hasta 10 MB. La URL se guardará en el campo <code className="bg-gray-100 px-1 rounded">image</code> del socio.
+                    Subí una imagen JPG, PNG, WEBP o GIF de hasta 10 MB. El archivo se enviará al servicio de upload y luego se guardará la URL resultante en el campo <code className="bg-gray-100 px-1 rounded">image</code> del socio.
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    Ruta esperada para publicación: <span className="font-mono">public/members/images</span>
+                    Carpeta enviada al servicio: <span className="font-mono">members/images</span>
                   </p>
                 </div>
                 {memberImageSrc && (

@@ -1,5 +1,30 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://bitweb.online/api';
 
+const MEMBER_IMAGE_UPLOAD_URL = process.env.REACT_APP_MEMBER_IMAGE_UPLOAD_URL || '/club/members/upload';
+
+const buildApiUrl = (url) => `${API_BASE_URL}${url}`;
+
+const getUploadResponseUrl = (responseData) => {
+  if (!responseData) return '';
+
+  const possibleUrl = responseData.url
+    || responseData.image
+    || responseData.image_url
+    || responseData.imageUrl
+    || responseData.file_url
+    || responseData.fileUrl
+    || responseData.location
+    || responseData.path;
+
+  if (!possibleUrl) return '';
+
+  if (possibleUrl.startsWith('http://') || possibleUrl.startsWith('https://')) {
+    return possibleUrl;
+  }
+
+  return possibleUrl.startsWith('/') ? possibleUrl : `/${possibleUrl}`;
+};
+
 const getAuthToken = () => {
   return localStorage.getItem('token');
 };
@@ -21,7 +46,7 @@ const authFetch = async (url, options = {}) => {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+    const response = await fetch(buildApiUrl(url), {
       ...options,
       headers,
     });
@@ -60,7 +85,7 @@ login: async (email, password) => {
   //console.log('🔐 Intentando login con:', { email, password });
   
   try {
-    const response = await fetch(`${API_BASE_URL}/users/login`, {
+    const response = await fetch(buildApiUrl('/users/login'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -143,7 +168,7 @@ login: async (email, password) => {
       
     };
 
-    const response = await fetch(`${API_BASE_URL}/users`, {
+    const response = await fetch(buildApiUrl('/users'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -363,20 +388,59 @@ export const clubMemberService = {
 
       return response;
     } catch (error) {
-      // Mejorar el manejo de errores para mostrar el mensaje específico
       console.error('Error en createMember:', error);
-      
-      // Si el error ya tiene un mensaje específico, lanzarlo tal cual
+
       if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
         throw error;
       }
-      
-      // Si es un error genérico, intentar obtener más detalles
+
       throw new Error(error.message || 'Error al crear socio');
     }
   },
 
+  uploadMemberImage: async (file, folder = 'members/images') => {
+    const clubToken = localStorage.getItem('club_token');
+    const memberToken = localStorage.getItem('member_token');
+    const mainToken = localStorage.getItem('token');
+    const token = clubToken || memberToken || mainToken;
 
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', folder);
+
+    const response = await fetch(buildApiUrl(MEMBER_IMAGE_UPLOAD_URL), {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Error ${response.status}: ${response.statusText}`;
+
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData?.error || errorData?.message || errorMessage;
+      } catch (parseError) {
+        const textError = await response.text();
+        if (textError) {
+          errorMessage = textError;
+        }
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    const responseData = await response.json();
+    const uploadedUrl = getUploadResponseUrl(responseData);
+
+    if (!uploadedUrl) {
+      throw new Error('El servicio de upload no devolvió una URL válida para la imagen.');
+    }
+
+    return uploadedUrl;
+  },
+
+  // Actualizar socio
   updateMember: async (id, memberData) => {
     try {
       const response = await authFetch(`/club/members/${id}`, {
@@ -387,22 +451,13 @@ export const clubMemberService = {
       return response;
     } catch (error) {
       console.error('Error en updateMember:', error);
-      
-      // Preservar el mensaje específico de la API
+
       if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
         throw error;
       }
-      
+
       throw new Error(error.message || 'Error al actualizar socio');
     }
-  },
-
-  // Actualizar socio
-  updateMember: async (id, memberData) => {
-    return authFetch(`/club/members/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(memberData),
-    });
   },
 
   // Eliminar socio
@@ -411,8 +466,6 @@ export const clubMemberService = {
       method: 'DELETE',
     });
   },
-
-
 };
 
 
