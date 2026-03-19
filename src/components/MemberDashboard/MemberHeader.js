@@ -2,15 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useMemberAuth } from '../../context/MemberAuthContext';
 import { Menu, X, Bell, HelpCircle, LogOut } from 'lucide-react';
 
-
-const getMemberAvatarSrc = (image) => {
-  if (!image) return '';
-  if (image.startsWith('http://') || image.startsWith('https://') || image.startsWith('data:')) {
-    return image;
-  }
-  return image.startsWith('/') ? image : `/members/images/${image}`;
-};
-
 const MemberHeader = () => {
   const { user, logout } = useMemberAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -38,7 +29,6 @@ const MemberHeader = () => {
   }, [user]);
 
   const unreadNotifications = notifications.filter(n => !n.read).length;
-  const memberAvatarSrc = getMemberAvatarSrc(user?.image);
 
   const handleLogout = () => {
     if (window.confirm('¿Estás seguro de que deseas cerrar sesión?')) {
@@ -163,17 +153,9 @@ const MemberHeader = () => {
               <p className="text-sm text-gray-600 capitalize">{user?.role === 'member' ? user?.gender === 'male' ? 'Socio' : 'Socia' : user?.role }</p>
             </div>
             <div className="relative group">
-              {memberAvatarSrc ? (
-                <img
-                  src={memberAvatarSrc}
-                  alt={`Foto de ${user?.first_name || 'socio'}`}
-                  className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm cursor-pointer"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
-                  {user?.first_name?.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
+                {user?.first_name?.charAt(0).toUpperCase()}
+              </div>
               
               {/* Dropdown del perfil */}
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
@@ -206,17 +188,9 @@ const MemberHeader = () => {
           <div className="px-4 py-3 space-y-3">
             {/* Perfil en mobile */}
             <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-              {memberAvatarSrc ? (
-                <img
-                  src={memberAvatarSrc}
-                  alt={`Foto de ${user?.first_name || 'socio'}`}
-                  className="w-10 h-10 rounded-full object-cover border border-gray-200 shadow-sm"
-                />
-              ) : (
-                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {user?.first_name?.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center text-white font-bold">
+                {user?.first_name?.charAt(0).toUpperCase()}
+              </div>
               <div>
                 <p className="font-medium text-gray-800">{user?.first_name} {user?.last_name}</p>
                 <p className="text-sm text-gray-600 capitalize">{user?.role}</p>
