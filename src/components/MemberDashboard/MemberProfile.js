@@ -49,31 +49,18 @@ const MemberProfile = () => {
   });
 
   useEffect(() => {
-    if (user?.id) {
-      loadMemberData();
-    } else {
-      setLoading(false);
-      setError('Usuario no autenticado');
-    }
-  }, [user?.id]);
+    loadMemberData();
+  }, []);
 
   const syncMemberState = (memberData) => {
     setMember(memberData);
     setImagePreview(getMemberImageSrc(memberData.image));
-
-    if (
-      user?.first_name !== memberData.first_name ||
-      user?.last_name !== memberData.last_name ||
-      user?.email !== memberData.email ||
-      user?.image !== memberData.image
-    ) {
-      updateUser({
-        first_name: memberData.first_name,
-        last_name: memberData.last_name,
-        email: memberData.email,
-        image: memberData.image,
-      });
-    }
+    updateUser({
+      first_name: memberData.first_name,
+      last_name: memberData.last_name,
+      email: memberData.email,
+      image: memberData.image,
+    });
   };
 
   const loadMemberData = async () => {
