@@ -68,13 +68,13 @@ const MemberDashboard = () => {
   }, [sidebarOpen]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user && user.id) {
       loadMemberData();
     } else {
       setLoading(false);
       setError('Usuario no autenticado');
     }
-  }, [user?.id]);
+  }, [user]);
 
   // Función para cargar horarios de una categoría específica
   const loadSchedulesForCategory = async (categoryId, enrollmentId) => {
@@ -86,6 +86,7 @@ const MemberDashboard = () => {
       // console.log(`Cargando horarios para category_id: ${categoryId}`);
       const schedulesData = await clubScheduleService.getSchedulesByCategoryId(categoryId);
       // console.log(`Horarios obtenidos para category_id ${categoryId}:`, schedulesData);
+      console.log(schedulesData)
       // Actualizar el estado con los horarios para este enrollment
       setEnrollmentSchedules(prev => ({
         ...prev,
@@ -115,7 +116,9 @@ const MemberDashboard = () => {
       setMember(memberData);
 
       // Traigo la config del club
-      await clubSettingService.getActiveSettingByClubId(memberData.club_id);
+      console.log(memberData);
+      const clubSettings = await clubSettingService.getActiveSettingByClubId(memberData.club_id);
+      console.log('club settings: ',clubSettings);
 
       // Cargar inscripciones del miembro
       let enrollmentsData = [];
