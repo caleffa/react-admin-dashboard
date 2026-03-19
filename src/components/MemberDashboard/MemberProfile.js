@@ -304,10 +304,7 @@ const MemberProfile = () => {
                     <ImageIcon size={16} /> Foto de perfil
                   </h4>
                   <p className="text-sm text-gray-600 mt-1">
-                    Subí una imagen JPG, PNG, WEBP o GIF de hasta 10 MB. La URL se guardará en el campo <code className="bg-gray-100 px-1 rounded">image</code> del socio.
-                  </p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    Ruta esperada para publicación: <span className="font-mono">public/members/images</span>
+                    Subí una imagen JPG, PNG, WEBP o GIF de hasta 10 MB.
                   </p>
                 </div>
                 {memberImageSrc && (
