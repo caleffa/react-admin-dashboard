@@ -181,7 +181,6 @@ const MemberProfile = () => {
                 <p className="text-gray-600">ID: {member?.id}</p>
               </div>
             </div>
-<<<<<<< HEAD
 
             <div className="rounded-xl border border-purple-200 bg-white/80 p-4 space-y-4">
               <div className="flex items-start justify-between gap-4">
@@ -224,9 +223,6 @@ const MemberProfile = () => {
               )}
             </div>
 
-=======
-            
->>>>>>> 67be2d05c1bc5684f70db6bd0c0aec60ad642039
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Email:</span>
