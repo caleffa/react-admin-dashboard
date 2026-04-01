@@ -72,7 +72,7 @@ const ClubSidebar = ({ activeSection, setActiveSection, mobile = false }) => {
         { id: 'feetypes', label: 'Tipos de Cuotas', icon: <Blocks size={18} /> }, 
         { id: 'fees', label: 'Cuotas', icon: <Copy size={18} /> },
         { id: 'paymentmethods', label: 'Métodos de pago', icon: <CreditCard size={18} /> },
-        { id: 'paymentmethods', label: 'Caja', icon: <DollarSign size={18} /> },
+        { id: 'payments', label: 'Caja', icon: <DollarSign size={18} /> }, 
       ]
     },
     ajustes: {

@@ -1257,3 +1257,85 @@ export const clubSettingService = {
     });
   },
 };
+
+
+////////////////////
+///// Payments /////
+////////////////////
+
+export const clubPaymentService = {
+  // Obtener todas 
+  getAllPayments: async () => {
+    const response = await authFetch('/club/payments');
+    return response.results || [];
+  },
+
+  // Obtener  por club ID
+  getPaymentsByClubId: async (clubId) => {
+    const response = await authFetch(`/club/payments/club/${clubId}`);
+    return response.results || [];
+  },
+
+  // Obtener  por ID
+  getPaymentMethodById: async (id) => {
+    return authFetch(`/club/payments/${id}`);
+  },
+
+  // Crear 
+  createPayment: async (paymentData) => {
+    try {
+      const response = await authFetch('/club/payments', {
+        method: 'POST',
+        body: JSON.stringify(paymentData),
+      });
+
+      return response;
+    } catch (error) {
+      // Mejorar el manejo de errores para mostrar el mensaje específico
+      console.error('Error en createPayment:', error);
+      
+      // Si el error ya tiene un mensaje específico, lanzarlo tal cual
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      // Si es un error genérico, intentar obtener más detalles
+      throw new Error(error.message || 'Error al crear socio');
+    }
+  },
+
+  updatePayment: async (id, paymentData) => {
+    try {
+      const response = await authFetch(`/club/payments/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(paymentData),
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Error en updatePayment:', error);
+      
+      // Preservar el mensaje específico de la API
+      if (error.message && !error.message.includes('Error') && !error.message.includes('Bad Request')) {
+        throw error;
+      }
+      
+      throw new Error(error.message || 'Error al actualizar socio');
+    }
+  },
+
+  // Actualizar 
+  updatePayment: async (id, paymentData) => {
+    return authFetch(`/club/payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(paymentData),
+    });
+  },
+
+  // Eliminar 
+  deletePayment: async (id) => {
+    return authFetch(`/club/payments/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};

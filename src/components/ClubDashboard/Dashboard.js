@@ -11,6 +11,7 @@ import ClubFeeTypesManagement from './ClubFeeTypesManagement';
 import ClubFeesManagement from './ClubFeesManagement';
 import ClubSettingsManagement from './ClubSettingsManagement';
 import ClubPaymentMethodsManagement from './ClubPaymentMethodsManagement';
+import ClubPaymentsManagement from './ClubPaymentsManagement';
 import ClubProfile from './ClubProfile';
 import { useClubAuth } from '../../context/ClubAuthContext';
 import { 
@@ -107,6 +108,8 @@ const ClubDashboard = () => {
         return <ClubFeesManagement openModal={openModal} closeModal={closeModal} />;
       case 'paymentmethods':
         return <ClubPaymentMethodsManagement openModal={openModal} closeModal={closeModal} />;
+      case 'payments':
+        return <ClubPaymentsManagement openModal={openModal} closeModal={closeModal} />;
       case 'settings':
         return <ClubSettingsManagement openModal={openModal} closeModal={closeModal} />;
       case 'profile':

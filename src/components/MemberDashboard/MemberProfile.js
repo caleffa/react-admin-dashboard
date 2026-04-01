@@ -10,14 +10,19 @@ import {
   BookOpen, 
   Tag, 
   Calendar, 
-  CreditCard,SquareActivity,
+  CreditCard,
+  SquareActivity,
   DollarSign,
   FileText,
   BarChart3,
-  ChevronRight,CircleUser,
+  ChevronRight,
+  CircleUser,
   Eye,
-  Edit,Phone,
-  Trash2
+  Edit,
+  Phone,
+  Trash2,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 
 const MemberProfile = () => {
@@ -27,6 +32,8 @@ const MemberProfile = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [member, setMember] = useState(null);
+  const [memberImageSrc, setMemberImageSrc] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -58,13 +65,75 @@ const MemberProfile = () => {
         address: memberData.address || '',
         emergency_contact_name: memberData.emergency_contact_name || '',
         emergency_contact_phone: memberData.emergency_contact_phone || '',
-        medical_conditions: memberData.medical_conditions || ''
+        medical_conditions: memberData.medical_conditions || '',
+        email: memberData.email || ''
       });
+      
+      console.log(memberData);
+      
+      // Si hay una imagen, establecerla
+      if (memberData.image) {
+        setMemberImageSrc(memberData.image);
+      }
     } catch (err) {
       setError('Error al cargar los datos: ' + err.message);
       console.error('Error loading memberData:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar tamaño (10MB máximo)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('La imagen no puede superar los 10MB');
+      return;
+    }
+
+    // Validar tipo de archivo
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      setError('Formato no válido. Usa JPG, PNG, WEBP o GIF');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setError('');
+
+    try {
+      // Aquí iría la lógica para subir la imagen a tu servidor
+      // Por ahora solo simulamos la subida
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMemberImageSrc(reader.result);
+        // Aquí llamarías a tu API para guardar la imagen
+        // await clubMemberService.uploadImage(user.id, file);
+        setIsUploadingImage(false);
+        setSuccessMessage('Imagen actualizada correctamente');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setError('Error al subir la imagen: ' + err.message);
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    setIsUploadingImage(true);
+    try {
+      setMemberImageSrc('');
+      // Aquí llamarías a tu API para eliminar la imagen
+      // await clubMemberService.removeImage(user.id);
+      setSuccessMessage('Imagen eliminada correctamente');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      setError('Error al eliminar la imagen: ' + err.message);
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -91,7 +160,8 @@ const MemberProfile = () => {
         address: formData.address,
         emergency_contact_name: formData.emergency_contact_name,
         emergency_contact_phone: formData.emergency_contact_phone,
-        medical_conditions: formData.medical_conditions
+        medical_conditions: formData.medical_conditions,
+        image: memberImageSrc // Incluir la imagen si ha cambiado
       };
 
       await clubMemberService.updateMember(user.id, updateData);
@@ -156,24 +226,31 @@ const MemberProfile = () => {
         {/* Información del Socio */}
         <div className="bg-purple-100 rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-4">
-
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 inline-flex items-center">
+            <h3 className="text-lg font-semibold text-gray-800 inline-flex items-center">
               <CircleUser size={18} className="mr-2" /> 
               Mi Información Personal
             </h3>
-
             <button
               onClick={() => setIsEditModalOpen(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 inline-flex items-center"
             >
-              <Edit size={18} className="mr-2" /> Editar</button>
+              <Edit size={18} className="mr-2" /> Editar
+            </button>
           </div>
           
           <div className="space-y-4">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-                {member?.first_name?.charAt(0).toUpperCase()}{member?.last_name?.charAt(0).toUpperCase()}
-              </div>
+              {memberImageSrc ? (
+                <img 
+                  src={memberImageSrc} 
+                  alt="Profile" 
+                  className="w-16 h-16 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                  {member?.first_name?.charAt(0).toUpperCase()}{member?.last_name?.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <h4 className="text-lg font-medium text-gray-900">
                   {member?.first_name} {member?.last_name}
@@ -247,7 +324,7 @@ const MemberProfile = () => {
               <div className="flex justify-between">
                 <span className="text-gray-600">Género:</span>
                 <span className="font-medium capitalize">
-                  {member?.gender === 'female' ? 'Femenino' : 'Masculino'}
+                  {member?.gender === 'female' ? 'Femenino' : member?.gender === 'male' ? 'Masculino' : 'No especificado'}
                 </span>
               </div>
               
@@ -273,7 +350,7 @@ const MemberProfile = () => {
           </div>
         </div>
 
-        {/* Información del Club e Contacto de Emergencia */}
+        {/* Información del Club y Contacto de Emergencia */}
         <div className="space-y-6">
 
           {/* Contacto de Emergencia */}
